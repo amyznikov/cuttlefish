@@ -1,0 +1,8 @@
+# Make variables (CC, etc...)
+
+CROSS_COMPILE=
+
+include arch/default-toolchain
+
+# override default assembler
+AS	= yasm

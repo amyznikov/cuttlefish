@@ -1,0 +1,20 @@
+# Make variables (CC, etc...)
+
+ifeq ("$(strip $(shell command -v ndk-which))","")
+$(error No 'ndk-which' found in PATH. Is Android NDK installed correctly?)
+endif
+
+AS		= $(shell ndk-which as)
+LD		= $(shell ndk-which ld)
+CC		= $(shell ndk-which gcc)
+CPP		= $(shell ndk-which cpp)
+CXX   = $(shell ndk-which g++)
+AR		= $(shell ndk-which ar)
+NM		= $(shell ndk-which nm)
+STRIP		= $(shell ndk-which strip)
+OBJCOPY		= $(shell ndk-which objcopy)
+OBJDUMP		= $(shell ndk-which objdump)
+
+NDK_ROOT=$(shell dirname $(command -v ndk-which))
+NDK_PLATFORM=android-16
+NDK_SYSROOT=$(NDK_ROOT)/platforms/$(NDK_PLATFORM)

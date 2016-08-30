@@ -1,0 +1,10 @@
+
+pkgname=('protobuf3')
+pkgver=$(sed -n 's/^VERSION\s*=\s*//p' ${SOURCE_DIR}/Makefile | tr - _)
+pkgrel=1
+arch=('i686' 'x86' 'x86_64')
+
+
+package() {
+	make -C ${SOURCE_DIR} V=1 install DESTDIR=${pkgdir}
+}

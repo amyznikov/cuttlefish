@@ -1,0 +1,14 @@
+
+pkgname=('grpc')
+pkgver=$(sed -n 's/^VERSION\s*=\s*//p' ${SOURCE_DIR}/Makefile | tr - _)
+pkgrel=1
+arch=('i686' 'x86' 'x86_64')
+
+package() {
+  depends=('openssl' 'protobuf3')
+  mkdir -p ${pkgdir}/${PREFIX}/bin && cp -r ${SOURCE_DIR}/bins/${GRPC_CONFIG}/* ${pkgdir}/${PREFIX}/bin
+  mkdir -p ${pkgdir}/${PREFIX}/lib && cp -r ${SOURCE_DIR}/libs/${GRPC_CONFIG}/* ${pkgdir}/${PREFIX}/lib
+  mkdir -p ${pkgdir}/${PREFIX}/include && cp -r ${SOURCE_DIR}/include/* ${pkgdir}/${PREFIX}/include
+  mkdir -p ${pkgdir}/${PREFIX}/share/grpc && cp ${SOURCE_DIR}/etc/* ${pkgdir}/${PREFIX}/share/grpc
+  mkdir -p ${pkgdir}/${PREFIX}/share/licenses/$pkgname && cp ${SOURCE_DIR}/LICENSE ${pkgdir}/${PREFIX}/share/licenses/$pkgname
+}

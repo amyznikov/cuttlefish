@@ -1,0 +1,18 @@
+# openssl
+with-cuttlessl = y
+
+# grpc
+with-grpc = y
+with-protobuf = y
+
+# ffmpeg
+with-ffmpeg = s
+with-x264 = s
+with-opencore = s
+
+
+# cuttlefish
+with-libcuttle = y
+with-cuttle-grpc = y
+
+

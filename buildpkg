@@ -1,0 +1,43 @@
+#! /bin/bash
+
+dist=unknown
+
+if [[ "$(command -v pacman)" != "" ]]; then 
+	dist="archlinux";
+elif [[ "$(command -v apt-get)" != "" ]]; then
+	dist="debian";
+else 
+	echo "Not supported linux distribution" 2>&1;  
+	exit 1;
+fi
+
+
+
+########
+
+if [[ "$dist" == "archlinux" ]]; then
+	
+	if ! makepkg $@ ; then
+		echo "makepkg failed" 2>&1;
+		exit 1;
+	fi
+	
+			
+########
+
+elif [[ "$dist" == "debian" ]]; then
+	
+	echo "Build debian package Not implemented" 2>&1;
+	exit 1;
+
+		
+########
+
+else 
+	
+	echo "Not supported linux distribution" 2>&1;  
+	exit 1;
+	
+fi
+
+########
