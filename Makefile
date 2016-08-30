@@ -97,7 +97,7 @@ $(DISTCLEAN_ALL) :
 PACKAGE_ALL = $(addprefix package-,$(BUILD_MODULES))
 package: $(PACKAGE_ALL)
 $(PACKAGE_ALL):
-	cd distrib/archlinux/$(@:package-%=%)
+	cd distrib/$(@:package-%=%) && \
 	$(CURDIR)/buildpkg --config $(CURDIR)/arch/$(ARCH)/makepkg.conf \
 		PREFIX=$(PREFIX) \
 		SOURCE_DIR=$(CURDIR)/modules/$(@:package-%=%) \
@@ -118,22 +118,19 @@ cuttlessl: configure-cuttlessl build-cuttlessl install-cuttlessl
 
 install-cuttlessl: $(INSTALLDIR)
 	$(MAKE) -C $(CURDIR)/modules/cuttlessl install_sw
-#	 DIRS='crypto ssl engines'
 
 
 build-cuttlessl:
 	$(MAKE) -C $(CURDIR)/modules/cuttlessl depend all
-#	build_libcrypto build_libssl openssl.pc
 
 configure-cuttlessl:
-	cd $(CURDIR)/modules/cuttlessl || exit 1
-	if [[ $(ARCH) == native ]] ; then \
-		./config --prefix="$(PREFIX)" --install_prefix="$(INSTALLDIR)" shared || exit 1 ; \
+	if [[ "$(ARCH)" == "native" ]] ; then \
+	   cd $(CURDIR)/modules/cuttlessl && ./config --prefix="$(PREFIX)" --install_prefix="$(INSTALLDIR)" shared || exit 1 ; \
 	else \
-		T="linux-${target%%-*}"; \
-		./Configure --prefix="$(PREFIX)" --cross-compile-prefix=$(cross_prefix) --install_prefix=$(INSTALLDIR) "$(T)"
+	   T="linux-${FIXME%%-*}"; \
+	   cd $(CURDIR)/modules/cuttlessl && \
+             ./Configure --prefix="$(PREFIX)" --cross-compile-prefix=$(cross_prefix) --install_prefix=$(INSTALLDIR) "$(T)" || exit 1 ; \
 	fi
-
 
 
 ############################################################
@@ -264,7 +261,7 @@ ffmpeg: configure-ffmpeg build-ffmpeg install-ffmpeg
 
 configure-ffmpeg: $(OBJDIR)/ffmpeg $(call build-filter, openssl x264)
 	cd $(OBJDIR)/ffmpeg && \
- 	$(CURDIR)/modules/ffmpeg/configure \
+	$(CURDIR)/modules/ffmpeg/configure \
 		$(enable_cross_compile) \
 		--PREFIX=$(PREFIX) \
 		--target-os=linux \

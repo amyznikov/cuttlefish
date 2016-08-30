@@ -15,20 +15,86 @@ fi
 
 ########
 
+# archlinux
+
 if [[ "$dist" == "archlinux" ]]; then
+
 	
 	if ! makepkg $@ ; then
 		echo "makepkg failed" 2>&1;
 		exit 1;
 	fi
 	
+
+
 			
 ########
 
+
+# debian 
+
 elif [[ "$dist" == "debian" ]]; then
-	
-	echo "Build debian package Not implemented" 2>&1;
-	exit 1;
+
+while [ "$1" ] ; do
+    arg="$1"
+    case $arg in 
+	--config) config="$2"; 	shift ;;
+	*=*) export ${arg%%=*}="${arg##*=}" ;;
+	*) ;;
+    esac
+    shift; 
+done
+
+
+. $config || exit 1
+. PKGBUILD || exit 1
+
+
+case ${CARCH} in
+    x86_64) debarch=amd64 ;;
+    *) debarch=${CARCH} ;;
+esac
+
+debver="${pkgver/_/~}-${pkgrel}"
+debpkg="${pkgname}-${debver}_${debarch}"
+pkgdir="$(pwd)/${debpkg}"
+
+control="\
+Package: ${pkgname}
+Version: ${debver}
+Section: cuttle
+Priority: optional
+Architecture: ${debarch}
+Maintainer: A. Myznikov <andrey.myznikov@gmail.com>
+Description: ${pkgdesc}
+"
+
+rm -rf ${pkgdir} && mkdir -p ${pkgdir}/DEBIAN && cd ${pkgdir} && package && cd ${pkgdir} || exit 1
+
+# control
+echo "${control}" > DEBIAN/control
+
+
+# dirs, links and md5sums
+for f in */ ; do 
+    if [[ "$f" != "DEBIAN/" ]] ; then 
+	find $f -type d -exec echo {} \; >> DEBIAN/dirs
+	find $f -type l -exec echo {} \; >> DEBIAN/links
+	md5deep -l -r $f >> DEBIAN/md5sums
+    fi
+done
+
+# conffiles
+for d in etc usr/local/etc; do
+    if [[ -d $d ]] ; then 
+	find $d/ -type f -exec echo {} \; >> DEBIAN/conffiles
+    fi
+done
+
+
+echo "Building debian package ${debpkg} " 2>&1
+cd ${pkgdir}/.. && dpkg-deb --build ${debpkg} || exit 1
+
 
 		
 ########
