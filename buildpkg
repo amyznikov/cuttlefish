@@ -7,7 +7,7 @@ if [[ "$(command -v pacman)" != "" ]]; then
 elif [[ "$(command -v apt-get)" != "" ]]; then
 	dist="debian";
 else 
-	echo "Not supported linux distribution" 2>&1;  
+	echo "Not supported linux distribution" 1>&2;  
 	exit 1;
 fi
 
@@ -21,7 +21,7 @@ if [[ "$dist" == "archlinux" ]]; then
 
 	
 	if ! makepkg $@ ; then
-		echo "makepkg failed" 2>&1;
+		echo "makepkg failed" 1>&2;
 		exit 1;
 	fi
 	
@@ -92,7 +92,7 @@ for d in etc usr/local/etc; do
 done
 
 
-echo "Building debian package ${debpkg} " 2>&1
+echo "Building debian package ${debpkg} " 1>&2
 cd ${pkgdir}/.. && dpkg-deb --build ${debpkg} || exit 1
 
 
@@ -101,7 +101,7 @@ cd ${pkgdir}/.. && dpkg-deb --build ${debpkg} || exit 1
 
 else 
 	
-	echo "Not supported linux distribution" 2>&1;  
+	echo "Not supported linux distribution" 1>&2;  
 	exit 1;
 	
 fi
