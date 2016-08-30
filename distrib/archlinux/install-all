@@ -1,0 +1,10 @@
+#! /bin/bash
+
+
+packages=(cuttlessl protobuf grpc cuttle-grpc libcuttle)
+
+for p in ${packages[@]} ; do
+	if [ -f $p/*.pkg.tar.xz ] ; then
+		pacman -U $p/*.pkg.tar.xz
+	fi
+done

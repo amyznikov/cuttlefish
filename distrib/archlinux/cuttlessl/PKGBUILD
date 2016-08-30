@@ -1,0 +1,11 @@
+
+pkgname=('cuttlessl')
+pkgver=$(sed -rn 's/^VERSION(\s*)=(\s*)([0-9.]+)(.*)/\3.\4/p' ${SOURCE_DIR}/Makefile | tr - _)
+pkgrel=1
+arch=('i686' 'x86' 'x86_64')
+
+
+package() {
+  make -C ${SOURCE_DIR} V=1 install_sw INSTALL_PREFIX=${pkgdir}
+  mkdir -p ${pkgdir}/${PREFIX}/include/openssl/engines/ccgost && cp ${SOURCE_DIR}/engines/ccgost/*.h ${pkgdir}/${PREFIX}/include/openssl/engines/ccgost
+}
