@@ -48,8 +48,11 @@ LDLIBS += ../../libcuttle.a -L/usr/local/lib -lcrypto -lssl -ldl -lpthread
 
 
 $(MODULES): $(HEADERS) Makefile
-$(TARGET) : $(MODULES) Makefile
+$(TARGET) : $(MODULES) Makefile ../../libcuttle.a
 	$(LD) $(LDFLAGS)  $(MODULES) $(LDLIBS) -o $@
+
+../../libcuttle.a: 
+	$(MAKE) -C ../.. all
 
 clean:
 	$(RM) $(MODULES)

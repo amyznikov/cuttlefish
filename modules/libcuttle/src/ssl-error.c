@@ -26,11 +26,11 @@ static int cf_lib_id = 0;
 // for f in $(egrep -o 'cf_([^(]*)'  ssl-pkey.h ); do echo "\"$f\","; done
 static const char * cf_crypto_functions[] = {
     // ssl-x509.h
-    "cf_ssl_x509_new",
+    "cf_x509_new",
 
     // ssl-pkey.h
-    "cf_ssl_pkey_new",
-    "cf_ssl_pkey_free",
+    "cf_pkey_new",
+    "cf_pkey_free",
     "cf_write_pem_public_key",
     "cf_read_pem_public_key",
     "cf_write_pem_private_key",

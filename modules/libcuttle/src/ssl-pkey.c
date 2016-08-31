@@ -7,6 +7,7 @@
 
 #include "cuttle/ssl-pkey.h"
 #include "cuttle/ssl-error.h"
+#include "cuttle/hexbits.h"
 #include <string.h>
 #include <ctype.h>
 
@@ -15,49 +16,7 @@ static inline const EVP_CIPHER * cf_cipher_by_name(const char * cname)
   return cname && *cname ? EVP_get_cipherbyname(cname) : NULL;
 }
 
-static int ctoh(char c)
-{
-  if ( c >= '0' && c <= '9' ) {
-    return c - '0';
-  }
-  if ( c >= 'A' && c <= 'F' ) {
-    return c - 'A' + 10;
-  }
-  if ( c >= 'a' && c <= 'f' ) {
-    return c - 'a' + 10;
-  }
-  return -1;
-}
-
-static char * sbits2hex(const void * bits, size_t cbbits, char str[/*2*cbbits+1*/])
-{
-  char * s;
-  const uint8_t * pbits = bits;
-  for ( s = str; cbbits--; s += 2 ) {
-    sprintf(s, "%.2X", *pbits++);
-  }
-  return str;
-}
-
-static size_t shex2bits(const char * str, void * bits, size_t cbbitsmax)
-{
-  size_t i;
-  uint8_t * pbits = bits;
-  int c1 = -1, c2 = -1;
-
-  while ( isspace(*str) ) {
-    ++str;
-  }
-
-  for ( i = 0; *str && !isspace(*str) && i < cbbitsmax && (c1 = ctoh(*str)) >= 0 && (c2 = ctoh(*(str + 1))) >= 0;
-      ++i, str += 2 ) {
-    pbits[i] = (uint8_t) ((c1 << 4) | (c2));
-  }
-
-  return c1 >= 0 && c2 >= 0 ? i : 0;
-}
-
-EVP_PKEY * cf_ssl_pkey_new(const char * ctype, const char * params, EVP_PKEY * pubkey)
+EVP_PKEY * cf_pkey_new(const char * ctype, const char * params, EVP_PKEY * pubkey)
 {
   EVP_PKEY * key = NULL;
   EVP_PKEY_CTX * keygen_ctx = NULL;
@@ -164,7 +123,7 @@ end : ;
   return key;
 }
 
-void cf_ssl_pkey_free(EVP_PKEY ** key)
+void cf_pkey_free(EVP_PKEY ** key)
 {
   if ( key && *key ) {
     EVP_PKEY_free(*key);
@@ -402,7 +361,7 @@ EVP_PKEY * cf_read_pem_private_key_enc(const char * filename, const char * psw)
     goto end;
   }
 
-  if ( strcasecmp(filename, "stdin") ) {
+  if ( strcasecmp(filename, "stdin") == 0 ) {
     fp = stdin;
   }
   else if ( !(fp = fopen(filename, "r")) ) {
@@ -561,19 +520,19 @@ EVP_PKEY * cf_read_pem_private_key_str(const char * private_key)
   EVP_PKEY * key = NULL;
   BIO * bio = NULL;
 
-  int fOk = 0;
+  bool fOk = false;
 
   if ( !private_key || !*private_key ) {
     CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "No private key string provided");
     goto end;
   }
 
-  if ( !(key = EVP_PKEY_new()) ) {
-    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_new() fails");
-    goto end;
-  }
+//  if ( !(key = EVP_PKEY_new()) ) {
+//    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_new() fails");
+//    goto end;
+//  }
 
-  if ( !(bio = BIO_new_mem_buf((void*) private_key, -1)) ) {
+  if ( !(bio = BIO_new_mem_buf(private_key, -1)) ) {
     CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "BIO_new_mem_buf(private_key) fails");
     goto end;
   }
@@ -583,7 +542,7 @@ EVP_PKEY * cf_read_pem_private_key_str(const char * private_key)
     goto end;
   }
 
-  fOk = 1;
+  fOk = true;
 
 end : ;
 
@@ -592,7 +551,8 @@ end : ;
   }
 
   if ( key && !fOk ) {
-    EVP_PKEY_free(key), key = NULL;
+    EVP_PKEY_free(key);
+    key = NULL;
   }
 
   return key;
@@ -757,7 +717,7 @@ char * cf_write_public_key_hex_str(EVP_PKEY * pkey)
     goto end;
   }
 
-  sbits2hex(bits, cbbits, hex);
+  cf_bits2hex(bits, cbbits, hex);
 
 end : ;
 
@@ -777,7 +737,7 @@ EVP_PKEY * cf_read_public_key_hex_str(const char * hex)
   }
 
   bits = alloca(keylen = (strlen(hex) / 2 + 2));
-  if ( !(keylen = shex2bits(hex, bits, keylen)) ) {
+  if ( !(keylen = cf_hex2bits(hex, bits, keylen)) ) {
     CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "hex2bits() fails");
     return NULL;
   }
@@ -805,7 +765,7 @@ char * cf_write_private_key_hex_str(EVP_PKEY * pkey)
     goto end;
   }
 
-  sbits2hex(bits, cbbits, hex);
+  cf_bits2hex(bits, cbbits, hex);
 
 end : ;
 
@@ -825,7 +785,7 @@ EVP_PKEY * cf_read_private_key_hex_str(const char * hex)
   }
 
   bits = alloca(cbbits = (strlen(hex) / 2 + 2));
-  if ( !(cbbits = shex2bits(hex, bits, cbbits)) ) {
+  if ( !(cbbits = cf_hex2bits(hex, bits, cbbits)) ) {
     CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "hex2bits() fails");
     return NULL;
   }
@@ -849,7 +809,7 @@ int cf_write_public_key_hex_fp(EVP_PKEY * pkey, FILE * fp)
     goto end;
   }
 
-  if ( fprintf(fp, "%s", sbits2hex(bits, cbbits, hex = alloca(cbbits * 2 + 1))) <= 0 ) {
+  if ( fprintf(fp, "%s", cf_bits2hex(bits, cbbits, hex = alloca(cbbits * 2 + 1))) <= 0 ) {
     CF_SSL_ERR(CF_SSL_ERR_STDIO, "fprintf(fp=%p) fails: %s", fp, strerror(errno));
     goto end;
   }
@@ -915,7 +875,7 @@ int cf_write_private_key_hex_fp(EVP_PKEY * pkey, FILE * fp)
     goto end;
   }
 
-  if ( fprintf(fp, "%s", sbits2hex(bits, cbbits, hex = alloca(cbbits * 2 + 1))) <= 0 ) {
+  if ( fprintf(fp, "%s", cf_bits2hex(bits, cbbits, hex = alloca(cbbits * 2 + 1))) <= 0 ) {
     CF_SSL_ERR(CF_SSL_ERR_STDIO, "fprintf(fp=%p) fails: %s", fp, strerror(errno));
     goto end;
   }

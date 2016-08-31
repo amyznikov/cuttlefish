@@ -48,6 +48,7 @@ HEADERS = $(addprefix include/cuttle/, \
 						opts.h \
 						pgdb.h \
 						ifaddrs.h \
+						hexbits.h \
 						ssl-init.h \
 						ssl-error.h \
 						ssl-pkey.h \
@@ -61,6 +62,7 @@ SOURCES  =  $(addprefix src/,\
 						opts.c \
 						pgdb.c \
 						ifaddrs.c \
+						hexbits.c \
 						ssl-init.c \
 						ssl-error.c \
 						ssl-pkey.c \

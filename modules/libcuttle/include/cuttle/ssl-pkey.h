@@ -28,10 +28,10 @@ extern "C" {
  * Public/Private key pair generation
  *  ctype examples: rsa dstu4145le gost94 gost2001 etc
  */
-EVP_PKEY * cf_ssl_pkey_new(const char * ctype, const char * params, EVP_PKEY * pubkey /*=NULL*/);
+EVP_PKEY * cf_pkey_new(const char * ctype, const char * params, EVP_PKEY * pubkey /*=NULL*/);
 
 /** Calls EVP_PKEY_free() */
-void cf_ssl_pkey_free(EVP_PKEY ** key);
+void cf_pkey_free(EVP_PKEY ** key);
 
 
 /* EVP_PKEY Read/Write utily */
