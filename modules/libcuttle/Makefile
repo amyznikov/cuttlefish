@@ -47,6 +47,11 @@ HEADERS = $(addprefix include/cuttle/, \
 						daemon.h \
 						opts.h \
 						pgdb.h \
+						ifaddrs.h \
+						ssl-init.h \
+						ssl-error.h \
+						ssl-pkey.h \
+						ssl-x509.h \
 						)
 
 
@@ -55,6 +60,11 @@ SOURCES  =  $(addprefix src/,\
 						daemon.c \
 						opts.c \
 						pgdb.c \
+						ifaddrs.c \
+						ssl-init.c \
+						ssl-error.c \
+						ssl-pkey.c \
+						ssl-x509.c \
 						)
 
 MODULES  =  $(addsuffix .o,$(basename $(SOURCES)))

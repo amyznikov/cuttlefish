@@ -44,15 +44,15 @@ void cf_plog(int pri, const char * func, int line, const char * format, ...)
 void cf_pbt(void);
 
 
-#define CF_PEMERGE(...)   cf_plog(CF_LOG_EMERG  , __func__, __LINE__, __VA_ARGS__)
-#define CF_PALERT(...)    cf_plog(CF_LOG_ALERT  , __func__, __LINE__, __VA_ARGS__)
-#define CF_PCRITICAL(...) cf_plog(CF_LOG_CRIT   , __func__, __LINE__, __VA_ARGS__)
-#define CF_PERROR(...)    cf_plog(CF_LOG_ERR    , __func__, __LINE__, __VA_ARGS__)
-#define CF_PWARNING(...)  cf_plog(CF_LOG_WARNING, __func__, __LINE__, __VA_ARGS__)
-#define CF_PNOTICE(...)   cf_plog(CF_LOG_NOTICE , __func__, __LINE__, __VA_ARGS__)
-#define CF_PINFO(...)     cf_plog(CF_LOG_INFO   , __func__, __LINE__, __VA_ARGS__)
-#define CF_PDEBUG(...)    cf_plog(CF_LOG_DEBUG  , __func__, __LINE__, __VA_ARGS__)
-#define CF_PEVENT(e,...)  cf_plog(e, __func__, __LINE__, __VA_ARGS__)
+#define CF_EMERGE(...)    cf_plog(CF_LOG_EMERG  , __func__, __LINE__, __VA_ARGS__)
+#define CF_ALERT(...)     cf_plog(CF_LOG_ALERT  , __func__, __LINE__, __VA_ARGS__)
+#define CF_CRITICAL(...)  cf_plog(CF_LOG_CRIT   , __func__, __LINE__, __VA_ARGS__)
+#define CF_ERROR(...)     cf_plog(CF_LOG_ERR    , __func__, __LINE__, __VA_ARGS__)
+#define CF_WARNING(...)   cf_plog(CF_LOG_WARNING, __func__, __LINE__, __VA_ARGS__)
+#define CF_NOTICE(...)    cf_plog(CF_LOG_NOTICE , __func__, __LINE__, __VA_ARGS__)
+#define CF_INFO(...)      cf_plog(CF_LOG_INFO   , __func__, __LINE__, __VA_ARGS__)
+#define CF_DEBUG(...)     cf_plog(CF_LOG_DEBUG  , __func__, __LINE__, __VA_ARGS__)
+#define CF_EVENT(e,...)   cf_plog(e, __func__, __LINE__, __VA_ARGS__)
 
 #define CF_PBT()          cf_pbt()
 
