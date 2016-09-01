@@ -121,28 +121,26 @@ EVP_PKEY * cf_pkey_new(const char * ctype, const char * params, EVP_PKEY * pubke
     }
   }
 
-  if ( paramgen_ctx ) {
-    if ( (status = EVP_PKEY_paramgen_init(paramgen_ctx)) == -2 ) {
-      EVP_PKEY_CTX_free(paramgen_ctx), paramgen_ctx = NULL;
-      ERR_clear_error(); /* seems operation is not supported for this keytype, skip this step */
-    }
-    else if ( status != 1 ) {
-      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_paramgen_init() fails: status=%d", status);
-      goto end;
-    }
-    else {
-      for ( int i = 0; i < nparams; ++i ) {
-        const char * key = param_array[i].key, * value = param_array[i].value;
-        if ( (status = EVP_PKEY_CTX_ctrl_str(paramgen_ctx, key, value)) <= 0 ) {
-          CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_CTX_ctrl_str(paramgen, '%s:%s') fails: status=%d", key, value, status);
-          goto end;
-        }
-      }
-      /* Generate parameters */
-      if ( EVP_PKEY_paramgen(paramgen_ctx, &key_params) != 1 ) {
-        CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_paramgen() fails");
+  if ( (status = EVP_PKEY_paramgen_init(paramgen_ctx)) == -2 ) {
+    EVP_PKEY_CTX_free(paramgen_ctx), paramgen_ctx = NULL;
+    ERR_clear_error(); /* seems operation is not supported for this keytype, skip this step */
+  }
+  else if ( status != 1 ) {
+    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_paramgen_init() fails: status=%d", status);
+    goto end;
+  }
+  else {
+    for ( int i = 0; i < nparams; ++i ) {
+      const char * key = param_array[i].key, *value = param_array[i].value;
+      if ( (status = EVP_PKEY_CTX_ctrl_str(paramgen_ctx, key, value)) <= 0 ) {
+        CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_CTX_ctrl_str(paramgen, '%s:%s') fails: status=%d", key, value, status);
         goto end;
       }
+    }
+    /* Generate parameters */
+    if ( EVP_PKEY_paramgen(paramgen_ctx, &key_params) != 1 ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_paramgen() fails");
+      goto end;
     }
   }
 
