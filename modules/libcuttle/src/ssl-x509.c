@@ -10,7 +10,9 @@
 
 
 #include "cuttle/ssl-x509.h"
+#include "cuttle/ssl-pkey.h"
 #include "cuttle/ssl-error.h"
+#include "getfp.h"
 #include <string.h>
 
 
@@ -19,78 +21,150 @@ static bool cf_x509_add_txt_entry(X509_NAME * name, const char * field, const ch
   return value ? X509_NAME_add_entry_by_txt(name, field, MBSTRING_ASC, (const uint8_t*) value, -1, -1, 0) : true;
 }
 
-X509 * cf_x509_new(const cf_x509_create_args * args)
+X509 * cf_x509_new(EVP_PKEY ** ppk, const cf_x509_create_args * args)
 {
   X509 * x = NULL;
   X509_NAME * name = NULL, * caname = NULL;
   EVP_PKEY * pkey = NULL, * cakey = NULL;
+  const char * keytype = NULL, * keyparams = NULL;
   const EVP_MD * md = NULL;
 
   bool fok = false;
 
-  if ( !(pkey = args->pkey) ) {
+  if ( !ppk ) {
     CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "pkey not specified");
     goto end;
   }
 
-  if ( (args->ca && !args->cakey) ) {
-    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "cakey not specified");
+  if ( (args->ca.cert && !args->ca.pkey) ) {
+    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "ca.pkey not specified");
     goto end;
   }
 
-  if ( args->cakey && !args->ca ) {
-    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "ca not specified");
+  if ( args->ca.pkey && !args->ca.cert ) {
+    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "ca.cert not specified");
     goto end;
   }
+
+  if ( !(pkey = *ppk) ) {
+
+    if ( !(keytype = args->keygen.keytype) ) {
+      keytype = "rsa";
+    }
+
+    if ( !(keyparams = args->keygen.params) ) {
+      if ( strcasecmp(keytype,"rsa") == 0 ) {
+        keyparams = "rsa_keygen_bits:2048";
+      }
+      else if ( strcasecmp(keytype, "gost94") == 0 || strcasecmp(keytype, "gost2001") == 0 ) {
+        keyparams = "paramset:A";
+      }
+      else if ( strncasecmp(keytype, "dstu4145", 8) == 0 ) {
+        keyparams = "curve:uacurve0";
+      }
+    }
+
+    if ( !(pkey = cf_pkey_new(keytype, keyparams, args->keygen.pubkey)) ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "cf_pkey_new() fails");
+      goto end;
+    }
+  }
+
+
 
   if ( !(x = X509_new()) ) {
     CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_new() fails");
     goto end;
   }
 
-  X509_set_version(x, 2);
-  ASN1_INTEGER_set(X509_get_serialNumber(x), args->serial);
-  X509_gmtime_adj(X509_get_notBefore(x), 0);
-  X509_gmtime_adj(X509_get_notAfter(x), args->days > 0 ? (long) 60 * 60 * 24 * args->days : (long) 365 * 60 * 60 * 24);
-  X509_set_pubkey(x, pkey);
+  if ( !X509_set_version(x, 2) ) {
+    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_set_version(2) fails");
+    goto end;
+  }
+
+  if ( !ASN1_INTEGER_set(X509_get_serialNumber(x), args->serial) ) {
+    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "ASN1_INTEGER_set(serial=%d) fails", args->serial);
+    goto end;
+  }
+
+  if ( !args->valididy.notBefore.time ) {
+    if ( !X509_time_adj(X509_get_notBefore(x), 0, NULL) ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_time_adj(notBefore) fails");
+      goto end;
+    }
+  }
+  else {
+    time_t t = args->valididy.notBefore.time;
+    if ( !X509_time_adj(X509_get_notBefore(x), 0, &t) ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_gmtime_adj(notBefore) fails");
+      goto end;
+    }
+  }
+
+  if ( args->valididy.notAfter.time ) {
+    time_t t = args->valididy.notAfter.time;
+    if ( !X509_time_adj(X509_get_notAfter(x), 0, &t) ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_gmtime_adj(notAfter) fails");
+      goto end;
+    }
+  }
+  else {
+    long offset = ((args->valididy.notAfter.period.days * 24 + args->valididy.notAfter.period.hours) * 60
+        + args->valididy.notAfter.period.minutes) * 60 + args->valididy.notAfter.period.seconds;
+    if ( !X509_time_adj(X509_get_notAfter(x), offset, NULL) ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_gmtime_adj(notAfter) fails");
+      goto end;
+    }
+  }
+
+  if ( !X509_set_pubkey(x, pkey) ) {
+    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_set_pubkey() fails");
+    goto end;
+  }
 
   if ( !(name = X509_get_subject_name(x)) ) {
     CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_get_subject_name() fails");
     goto end;
   }
-  if ( !cf_x509_add_txt_entry(name, "C", args->country) ) {
+
+  if ( !cf_x509_add_txt_entry(name, "C", args->subj.country) ) {
     CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "cf_x509_add_txt_entry('C') fails");
     goto end;
   }
-  if ( !cf_x509_add_txt_entry(name, "ST", args->state) ) {
+
+  if ( !cf_x509_add_txt_entry(name, "ST", args->subj.state) ) {
     CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "cf_x509_add_txt_entry('ST') fails");
     goto end;
   }
-  if ( !cf_x509_add_txt_entry(name, "L", args->city) ) {
+
+  if ( !cf_x509_add_txt_entry(name, "L", args->subj.city) ) {
     CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "cf_x509_add_txt_entry('L') fails");
     goto end;
   }
-  if ( !cf_x509_add_txt_entry(name, "O", args->company) ) {
+
+  if ( !cf_x509_add_txt_entry(name, "O", args->subj.company) ) {
     CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "cf_x509_add_txt_entry('O') fails");
     goto end;
   }
-  if ( !cf_x509_add_txt_entry(name, "OU", args->department) ) {
+
+  if ( !cf_x509_add_txt_entry(name, "OU", args->subj.department) ) {
     CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "cf_x509_add_txt_entry('OU') fails");
     goto end;
   }
-  if ( !cf_x509_add_txt_entry(name, "CN", args->common_name) ) {
+
+  if ( !cf_x509_add_txt_entry(name, "CN", args->subj.common_name) ) {
     CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "cf_x509_add_txt_entry('CN') fails");
     goto end;
   }
 
-  if ( !args->ca ) {
+  if ( !args->ca.cert ) {
     /* If self signed set the issuer name to be the same as the subject. */
     if ( !X509_set_issuer_name(x, name) ) {
       CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_set_issuer_name() fails");
       goto end;
     }
   }
-  else if ( !(caname = X509_get_subject_name(args->ca) ) ) {
+  else if ( !(caname = X509_get_subject_name(args->ca.cert) ) ) {
     CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_get_subject_name(ca) fails");
     goto end;
   }
@@ -104,11 +178,11 @@ X509 * cf_x509_new(const cf_x509_create_args * args)
   }
 
   if ( !(md = args->md) ) {
-    md = EVP_sha256();
+    md = cf_pkey_get_default_md(pkey);
   }
 
-  if ( !(cakey = args->cakey) ) {
-    cakey = pkey;    /* do self-sign */
+  if ( !(cakey = args->ca.pkey) ) {
+    cakey = pkey; /* will self-signed */
   }
 
   if ( !X509_sign(x, cakey, md) ) {
@@ -116,12 +190,21 @@ X509 * cf_x509_new(const cf_x509_create_args * args)
     goto end;
   }
 
+  if ( !*ppk ) {
+    *ppk = pkey;
+  }
+
   fok = true;
 
 end:
 
   if ( !fok ) {
+
     cf_x509_free(&x);
+
+    if ( !*ppk ) {
+      cf_pkey_free(&pkey);
+    }
   }
 
   return x;
@@ -151,25 +234,12 @@ X509 * cf_read_pem_x509_fp(FILE * fp)
 
 bool cf_write_pem_x509(X509 * x, const char * fname)
 {
-  FILE * fp;
+  FILE * fp = NULL;
   bool fok = false;
 
-  if ( strcasecmp(fname, "stdout") == 0 ) {
-    fp = stdout;
-  }
-  else if ( strcasecmp(fname, "stderr") == 0 ) {
-    fp = stderr;
-  }
-  else if ( !(fp = fopen(fname, "w")) ) {
-    CF_SSL_ERR(CF_SSL_ERR_STDIO, "fopen(%s) fails: %s", fname, strerror(errno));
-    goto end;
-  }
-
-  fok = cf_write_pem_x509_fp(x, fp);
-
-end:
-  if ( fp && fp != stdout && fp != stderr ) {
-    fclose(fp);
+  if ( (fp = cf_getfp(fname, "w", &fok)) ) {
+    fok = cf_write_pem_x509_fp(x, fp);
+    cf_closefp(&fp);
   }
 
   return fok;
@@ -177,27 +247,16 @@ end:
 
 X509 * cf_read_pem_x509(const char * fname)
 {
-  FILE * fp;
+  FILE * fp = NULL;
   X509 * x = NULL;
 
-  if ( strcasecmp(fname, "stdin") == 0 ) {
-    fp = stdin;
-  }
-  else if ( !(fp = fopen(fname, "r")) ) {
-    CF_SSL_ERR(CF_SSL_ERR_STDIO, "fopen(%s) fails: %s", fname, strerror(errno));
-    goto end;
-  }
-
-  x = cf_read_pem_x509_fp(fp);
-
-end:
-  if ( fp && fp != stdout && fp != stderr ) {
-    fclose(fp);
+  if ( (fp = cf_getfp(fname, "r", NULL)) ) {
+    x = cf_read_pem_x509_fp(fp);
+    cf_closefp(&fp);
   }
 
   return x;
 }
-
 
 char * cf_write_pem_x509_str(X509 * x)
 {

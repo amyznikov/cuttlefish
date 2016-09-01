@@ -63,6 +63,7 @@ SOURCES  =  $(addprefix src/,\
 						pgdb.c \
 						ifaddrs.c \
 						hexbits.c \
+						getfp.c	\
 						ssl-init.c \
 						ssl-error.c \
 						ssl-pkey.c \

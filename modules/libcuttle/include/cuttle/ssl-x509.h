@@ -13,6 +13,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/types.h>
 #include <openssl/conf.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
@@ -25,24 +26,52 @@ extern "C" {
 
 typedef
 struct cf_x509_create_args {
+
   const EVP_MD * md;
-  EVP_PKEY * pkey;
-  X509 * ca;
-  EVP_PKEY * cakey;
-  const char * country;
-  const char * state;
-  const char * city;
-  const char * company;
-  const char * department;
-  const char * common_name;
-  const char * email;
+
+  struct {
+    X509 * cert;
+    EVP_PKEY * pkey;
+  } ca;
+
+  struct {
+    const char * keytype;
+    const char * params;
+    EVP_PKEY * pubkey;
+  } keygen;
+
+  struct {
+    const char * country;
+    const char * state;
+    const char * city;
+    const char * company;
+    const char * department;
+    const char * common_name;
+    const char * email;
+  } subj;
+
+  struct {
+    struct {
+      time_t time;
+    } notBefore;
+
+    struct {
+      time_t time;
+      struct {
+        long days;
+        long hours;
+        long minutes;
+        long seconds;
+      } period;
+    } notAfter;
+  } valididy;
+
   int serial;
-  int days;
+
 } cf_x509_create_args;
 
-// see X509_REQ_to_X509()
 
-X509 * cf_x509_new(const cf_x509_create_args * args);
+X509 * cf_x509_new(EVP_PKEY ** ppkey, const cf_x509_create_args * args);
 void cf_x509_free(X509 ** x);
 
 bool cf_write_pem_x509(X509 * x, const char * fname);

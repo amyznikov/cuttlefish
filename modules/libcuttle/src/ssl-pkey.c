@@ -8,6 +8,7 @@
 #include "cuttle/ssl-pkey.h"
 #include "cuttle/ssl-error.h"
 #include "cuttle/hexbits.h"
+#include "getfp.h"
 #include <string.h>
 #include <ctype.h>
 
@@ -16,17 +17,69 @@ static inline const EVP_CIPHER * cf_cipher_by_name(const char * cname)
   return cname && *cname ? EVP_get_cipherbyname(cname) : NULL;
 }
 
+struct param {
+  const char * key;
+  const char * value;
+};
+
+static int parsekeyparams(char s[], struct param params[], int maxparams)
+{
+  static const char delims[] = " \t\n";
+  int nparams = 0;
+  char * p, *v;
+
+  p = strtok(s, delims);
+  while ( p && nparams < maxparams ) {
+
+    if ( !(v = strchr(p + 1, ':')) ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "Syntax error in '%s'", p);
+      break;
+    }
+
+    *v++ = 0;
+
+    params[nparams].key = p;
+    params[nparams].value = v;
+    ++nparams;
+
+    p = strtok(NULL, delims);
+  }
+
+  if ( nparams == maxparams ) {
+    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "Too many parameters");
+  }
+
+  return p ? -1 : nparams;
+}
+
+
+// https://wiki.openssl.org/index.php/EVP_Key_and_Parameter_Generation
 EVP_PKEY * cf_pkey_new(const char * ctype, const char * params, EVP_PKEY * pubkey)
 {
   EVP_PKEY * key = NULL;
+  EVP_PKEY_CTX * paramgen_ctx = NULL;
+  EVP_PKEY * key_params = NULL;
   EVP_PKEY_CTX * keygen_ctx = NULL;
   int type = 0;
-  int fOk = 0;
+  int status;
+
+  char param_buf[params ? strlen(params) + 1 : 1];
+  struct param param_array[128];
+  int nparams = 0;
+
+  bool fok = false;
 
   if ( ctype ) {
 
+    /* see obj_dat.h  obj_mac.h */
     if ( strcasecmp(ctype, "rsa") == 0 ) {
-      ctype = "rsaEncryption";
+      ctype = LN_rsaEncryption;
+    }
+    else if ( strcmp(ctype, "dsa") == 0 ) {
+      ctype = LN_dsa;
+    }
+    else if ( strcasecmp(ctype, "ec") == 0 ) {
+      ctype = SN_X9_62_id_ecPublicKey;
     }
 
     if ( !(type = OBJ_sn2nid(ctype)) && !(type = OBJ_ln2nid(ctype)) ) {
@@ -41,26 +94,74 @@ EVP_PKEY * cf_pkey_new(const char * ctype, const char * params, EVP_PKEY * pubke
     }
     else if ( type != EVP_PKEY_id(pubkey) ) {
       CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "ctype=%d not match pubkey type=%d", type, EVP_PKEY_id(pubkey));
-      return 0;
+      goto end;
     }
-  }
 
-  if ( !type ) {
-    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "Key type not specified");
-    return 0;
-  }
-
-  if ( pubkey ) {
-    if ( !(keygen_ctx = EVP_PKEY_CTX_new(pubkey, NULL)) ) {
-      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_CTX_new() fails");
+    if ( !(paramgen_ctx = EVP_PKEY_CTX_new(pubkey, NULL)) ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "paramgen_ctx = EVP_PKEY_CTX_new_id() fails");
       goto end;
     }
   }
   else {
-    if ( !(keygen_ctx = EVP_PKEY_CTX_new_id(type, NULL)) ) {
-      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_CTX_new_id(type=%d) fails", type);
+    if ( !type ) {
+      CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "Key type not specified");
       goto end;
     }
+    if ( !(paramgen_ctx = EVP_PKEY_CTX_new_id(type, NULL)) ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "paramgen_ctx = EVP_PKEY_CTX_new_id() fails");
+      goto end;
+    }
+  }
+
+  /* Set the parameters */
+  if ( params ) {
+    strcpy(param_buf, params);
+    if ( (nparams = parsekeyparams(param_buf, param_array, sizeof(param_array) / sizeof(param_array[0]))) < 0 ) {
+      goto end;
+    }
+  }
+
+  if ( paramgen_ctx ) {
+    if ( (status = EVP_PKEY_paramgen_init(paramgen_ctx)) == -2 ) {
+      EVP_PKEY_CTX_free(paramgen_ctx), paramgen_ctx = NULL;
+      ERR_clear_error(); /* seems operation is not supported for this keytype, skip this step */
+    }
+    else if ( status != 1 ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_paramgen_init() fails: status=%d", status);
+      goto end;
+    }
+    else {
+      for ( int i = 0; i < nparams; ++i ) {
+        const char * key = param_array[i].key, * value = param_array[i].value;
+        if ( (status = EVP_PKEY_CTX_ctrl_str(paramgen_ctx, key, value)) <= 0 ) {
+          CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_CTX_ctrl_str(paramgen, '%s:%s') fails: status=%d", key, value, status);
+          goto end;
+        }
+      }
+      /* Generate parameters */
+      if ( EVP_PKEY_paramgen(paramgen_ctx, &key_params) != 1 ) {
+        CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_paramgen() fails");
+        goto end;
+      }
+    }
+  }
+
+  /* Key Generation */
+  if ( key_params ) {
+    if ( !(keygen_ctx = EVP_PKEY_CTX_new(key_params, NULL)) ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_CTX_new(key_params) fails");
+      goto end;
+    }
+  }
+  else if ( pubkey ) {
+    if ( !(keygen_ctx = EVP_PKEY_CTX_new(pubkey, NULL)) ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_CTX_new(pubkey) fails");
+      goto end;
+    }
+  }
+  else if ( !(keygen_ctx = EVP_PKEY_CTX_new_id(type, NULL)) ) {
+    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_CTX_new_id(type=%d) fails", type);
+    goto end;
   }
 
   if ( EVP_PKEY_keygen_init(keygen_ctx) <= 0 ) {
@@ -68,56 +169,38 @@ EVP_PKEY * cf_pkey_new(const char * ctype, const char * params, EVP_PKEY * pubke
     goto end;
   }
 
-  if ( params ) {
-
-    static const char delims[] = " \t\n";
-    char p[strlen(params) + 1];
-    char * tok = strtok(strcpy(p, params), delims);
-    int i = 0;
-
-    while ( tok ) {
-      const size_t size = strlen(tok) + 1;
-      char param[size], value[size];
-      int status;
-      int n;
-
-      ++i;
-
-      if ( (n = sscanf(tok, "%[^:]:%[^\n]", param, value)) != 2 ) {
-        CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "sscanf(param:value='%s') fails: i=%d n=%d params='%s'", tok, i, n, params);
-        break;
-      }
-
-      if ( (status = EVP_PKEY_CTX_ctrl_str(keygen_ctx, param, value)) <= 0 ) {
-        CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_CTX_ctrl_str('%s:%s') fails: status=%d", param, value, status);
+  if ( !key_params ) {
+    for ( int i = 0; i < nparams; ++i ) {
+      const char * key = param_array[i].key, *value = param_array[i].value;
+      if ( (status = EVP_PKEY_CTX_ctrl_str(keygen_ctx, key, value)) <= 0 ) {
+        CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_CTX_ctrl_str(keygen, '%s:%s') fails: status=%d", key, value, status);
         goto end;
       }
-
-      tok = strtok(NULL, delims);
-    }
-
-    if ( tok ) {
-      goto end;
     }
   }
 
-  if ( EVP_PKEY_keygen(keygen_ctx, &key) <= 0 ) {
-    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_keygen() fails");
+  /* Finally Generate the key */
+  if ( (status = EVP_PKEY_keygen(keygen_ctx, &key)) <= 0 ) {
+    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_keygen() fails: status=%d", status);
     goto end;
   }
 
-  fOk = 1;
+  fok = true;
 
 end : ;
 
-  if ( !fOk ) {
-    if ( key ) {
-      EVP_PKEY_free(key);
-      key = NULL;
-    }
-  }
   if ( keygen_ctx ) {
     EVP_PKEY_CTX_free(keygen_ctx);
+  }
+
+  if ( paramgen_ctx ) {
+    EVP_PKEY_CTX_free(paramgen_ctx);
+  }
+
+  cf_pkey_free(&key_params);
+
+  if ( !fok ) {
+    cf_pkey_free(&key);
   }
 
   return key;
@@ -129,6 +212,18 @@ void cf_pkey_free(EVP_PKEY ** key)
     EVP_PKEY_free(*key);
     *key = NULL;
   }
+}
+
+const EVP_MD * cf_pkey_get_default_md(EVP_PKEY * pkey)
+{
+  const EVP_MD * md = NULL;
+  int nid = 0;
+
+  if ( EVP_PKEY_get_default_digest_nid(pkey, &nid) > 0 ) {
+    md = EVP_get_digestbynid(nid);
+  }
+
+  return md;
 }
 
 bool cf_write_pem_public_key_fp(EVP_PKEY * pkey, FILE * fp)
@@ -163,73 +258,29 @@ end : ;
   return key;
 }
 
-bool cf_write_pem_public_key(EVP_PKEY * pkey, const char * filename)
+bool cf_write_pem_public_key(EVP_PKEY * pkey, const char * fname)
 {
   FILE * fp = NULL;
-  bool fOk = false;
+  bool fok = false;
 
-  if ( !filename ) {
-    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "File name not provided");
-    goto end;
+  if ( (fp = cf_getfp(fname, "w", &fok)) ) {
+    fok = cf_write_pem_public_key_fp(pkey, fp);
+    cf_closefp(&fp);
   }
 
-  if ( strcmp(filename, "stdout") == 0 ) {
-    fp = stdout;
-  }
-  else if ( strcmp(filename, "stderr") == 0 ) {
-    fp = stderr;
-  }
-  else if ( !(fp = fopen(filename, "w")) ) {
-    CF_SSL_ERR(CF_SSL_ERR_STDIO, "fopen(%s) fails: %s", filename, strerror(errno));
-    goto end;
-  }
-
-  fOk = cf_write_pem_public_key_fp(pkey, fp);
-
-end : ;
-
-  if ( fp && fp != stdout && fp != stderr ) {
-    fclose(fp);
-  }
-
-  return fOk;
+  return fok;
 }
 
-EVP_PKEY * cf_read_pem_public_key(const char * filename)
+EVP_PKEY * cf_read_pem_public_key(const char * fname)
 {
-  EVP_PKEY * key = NULL;
   FILE * fp = NULL;
-  int fOk = 0;
+  EVP_PKEY * key = NULL;
 
-  if ( !filename ) {
-    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "file name not provided");
-    goto end;
-  }
-
-  if ( strcmp(filename, "stdin") == 0 ) {
-    fp = stdin;
-  }
-  else if ( !(fp = fopen(filename, "r")) ) {
-    CF_SSL_ERR(CF_SSL_ERR_STDIO, "fopen(%s) fails: %s", filename, strerror(errno));
-    goto end;
-  }
-
-  if ( !(key = cf_read_pem_public_key_fp(fp)) ) {
-    CF_SSL_ERR(CF_SSL_ERR_STDIO, "cf_read_pem_public_key_fp() fails: %s", strerror(errno));
-    goto end;
-  }
-
-  fOk = true;
-
-end : ;
-
-  if ( fp && fp != stdin ) {
-    fclose(fp);
-  }
-
-  if ( !fOk && key != NULL ) {
-    EVP_PKEY_free(key);
-    key = NULL;
+  if ( (fp = cf_getfp(fname, "r", NULL)) ) {
+    if ( !(key = cf_read_pem_public_key_fp(fp)) ) {
+      CF_SSL_ERR(CF_SSL_ERR_STDIO, "cf_read_pem_public_key_fp() fails: %s", strerror(errno));
+    }
+    cf_closefp(&fp);
   }
 
   return key;
@@ -316,80 +367,29 @@ EVP_PKEY * cf_read_pem_private_key_enc_fp(FILE * fp, const char * psw)
 
 }
 
-bool cf_write_pem_private_key_enc(EVP_PKEY * pkey, const char * filename, const char * enc_name, const char * psw)
+bool cf_write_pem_private_key_enc(EVP_PKEY * pkey, const char * fname, const char * enc, const char * psw)
 {
   FILE * fp = NULL;
-  int fOk = 0;
+  bool fok = false;
 
-  if ( !filename ) {
-    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "File name not provided");
-    goto end;
+  if ( (fp = cf_getfp(fname, "w", &fok)) ) {
+    fok = cf_write_pem_private_key_enc_fp(pkey, fp, enc, psw);
+    cf_closefp(&fp);
   }
 
-  if ( strcmp(filename, "stdout") == 0 ) {
-    fp = stdout;
-  }
-  else if ( strcmp(filename, "stderr") == 0 ) {
-    fp = stderr;
-  }
-  else if ( !(fp = fopen(filename, "w")) ) {
-    CF_SSL_ERR(CF_SSL_ERR_STDIO, "fopen(%s) fails: %s", filename, strerror(errno));
-    goto end;
-  }
-
-  fOk = cf_write_pem_private_key_enc_fp(pkey, fp, enc_name, psw);
-
-  fOk = 1;
-
-  end : ;
-
-  if ( fp && fp != stdout && fp != stderr ) {
-    fclose(fp);
-  }
-
-  return fOk;
+  return fok;
 }
 
-EVP_PKEY * cf_read_pem_private_key_enc(const char * filename, const char * psw)
+EVP_PKEY * cf_read_pem_private_key_enc(const char * fname, const char * psw)
 {
-  EVP_PKEY * key = NULL;
   FILE * fp = NULL;
-  int fOk = 0;
+  EVP_PKEY * key = NULL;
 
-  if ( !filename ) {
-    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "file name not provided");
-    goto end;
-  }
-
-  if ( strcasecmp(filename, "stdin") == 0 ) {
-    fp = stdin;
-  }
-  else if ( !(fp = fopen(filename, "r")) ) {
-    CF_SSL_ERR(CF_SSL_ERR_STDIO, "fopen(%s) fails: %s", filename, strerror(errno));
-    goto end;
-  }
-
-  if ( !(key = EVP_PKEY_new()) ) {
-    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_new() fails");
-    goto end;
-  }
-
-  if ( !PEM_read_PrivateKey(fp, &key, NULL, (void*) psw) ) {
-    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "PEM_read_PrivateKey() fails");
-    goto end;
-  }
-
-  fOk = 1;
-
-end : ;
-
-  if ( fp ) {
-    fclose(fp);
-  }
-
-  if ( !fOk && key != NULL ) {
-    EVP_PKEY_free(key);
-    key = NULL;
+  if ( (fp = cf_getfp(fname, "r", NULL)) ) {
+    if ( !PEM_read_PrivateKey(fp, &key, NULL, (void*) psw) ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "PEM_read_PrivateKey() fails");
+    }
+    cf_closefp(&fp);
   }
 
   return key;
@@ -527,11 +527,6 @@ EVP_PKEY * cf_read_pem_private_key_str(const char * private_key)
     goto end;
   }
 
-//  if ( !(key = EVP_PKEY_new()) ) {
-//    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "EVP_PKEY_new() fails");
-//    goto end;
-//  }
-
   if ( !(bio = BIO_new_mem_buf(private_key, -1)) ) {
     CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "BIO_new_mem_buf(private_key) fails");
     goto end;
@@ -560,9 +555,6 @@ end : ;
 
 size_t cf_write_public_key_bits(EVP_PKEY * pkey, uint8_t ** buf)
 {
-  //  const int outlen = i2d_PUBKEY(key, buf);
-  //  return outlen < 0 ? 0 : outlen;
-
   BIO * bio = NULL;
   BUF_MEM * mem = NULL;
   size_t outlen = 0;
@@ -604,8 +596,6 @@ end : ;
 
 EVP_PKEY * cf_read_public_key_bits(const uint8_t buf[], size_t cbbuf)
 {
-  //return d2i_PUBKEY(NULL, &buf, cbbuf);
-
   EVP_PKEY * pkey = NULL;
   BIO * bio = NULL;
 
@@ -631,8 +621,6 @@ end : ;
 
 size_t cf_write_private_key_bits(EVP_PKEY * pkey, uint8_t ** buf)
 {
-//  const int outlen = i2d_PrivateKey(key, buf);
-//  return outlen < 0 ? 0 : outlen;
   BIO * bio = NULL;
   BUF_MEM * mem = NULL;
   size_t outlen = 0;
@@ -924,135 +912,63 @@ EVP_PKEY * cf_read_private_key_hex_fp(FILE * fp)
   return pkey;
 }
 
-int cf_write_public_key_hex(EVP_PKEY * pkey, const char * filename)
+bool cf_write_public_key_hex(EVP_PKEY * pkey, const char * filename)
 {
   FILE * fp = NULL;
-
-  int fOk = 0;
+  bool fok = false;
 
   if ( !pkey ) {
     CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "Invalid argument key=NULL");
-    goto end;
+  }
+  else if ( (fp = cf_getfp(filename, "w", &fok)) ) {
+    if ( (fok = cf_write_public_key_hex_fp(pkey, fp)) ) {
+      fputc('\n', fp);
+    }
+    cf_closefp(&fp);
   }
 
-  if ( !filename || !*filename ) {
-    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "Output filename not provided");
-    goto end;
-  }
-
-  if ( strcasecmp(filename, "stdout") == 0 ) {
-    fp = stdout;
-  }
-  else if ( strcasecmp(filename, "stderr") == 0 ) {
-    fp = stderr;
-  }
-  else if ( !(fp = fopen(filename, "w")) ) {
-    CF_SSL_ERR(CF_SSL_ERR_STDIO, "Can not create '%s': %s", filename, strerror(errno));
-    goto end;
-  }
-
-  if ( (fOk = cf_write_public_key_hex_fp(pkey, fp)) ) {
-    fputc('\n', fp);
-  }
-
-end : ;
-
-  if ( fp != NULL && fp != stderr && fp != stdout ) {
-    fclose(fp);
-  }
-
-  return fOk;
+  return fok;
 }
 
-EVP_PKEY * cf_read_public_key_hex(const char * filename)
+EVP_PKEY * cf_read_public_key_hex(const char * fname)
 {
-  EVP_PKEY * pkey = NULL;
   FILE * fp = NULL;
+  EVP_PKEY * pkey = NULL;
 
-  if ( !filename || !*filename ) {
-    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "No input file name provided");
-  }
-  else if ( strcasecmp(filename, "stdin") == 0 ) {
-    fp = stdin;
-  }
-  else if ( !(fp = fopen(filename, "r")) ) {
-    CF_SSL_ERR(CF_SSL_ERR_STDIO, "Can not read '%s': %s", filename, strerror(errno));
-  }
-
-  if ( fp ) {
+  if ( (fp = cf_getfp(fname, "r", NULL)) ) {
     pkey = cf_read_public_key_hex_fp(fp);
-    if ( fp != stdin ) {
-      fclose(fp);
-    }
+    cf_closefp(&fp);
   }
 
   return pkey;
 }
 
-int cf_write_private_key_hex(EVP_PKEY * pkey, const char * filename)
+bool cf_write_private_key_hex(EVP_PKEY * pkey, const char * fname)
 {
   FILE * fp = NULL;
-
-  int fOk = 0;
+  bool fok = 0;
 
   if ( !pkey ) {
-    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "Invalid argument key=NULL");
-    goto end;
+    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "Invalid key: NULL");
+  }
+  else if ( (fp = cf_getfp(fname, "w", &fok)) ) {
+    if ( (fok = cf_write_private_key_hex_fp(pkey, fp)) ) {
+      fputc('\n', fp);
+    }
+    cf_closefp(&fp);
   }
 
-  if ( !filename || !*filename ) {
-    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "Output filename not provided");
-    goto end;
-  }
-
-  if ( strcasecmp(filename, "stdout") == 0 ) {
-    fp = stdout;
-  }
-  else if ( strcasecmp(filename, "stderr") == 0 ) {
-    fp = stderr;
-  }
-  else if ( !(fp = fopen(filename, "w")) ) {
-    CF_SSL_ERR(CF_SSL_ERR_STDIO, "Can not create '%s': %s", filename, strerror(errno));
-    goto end;
-  }
-
-  if ( (fOk = cf_write_private_key_hex_fp(pkey, fp)) ) {
-    fputc('\n', fp);
-  }
-
-end : ;
-
-  if ( fp != NULL && fp != stderr && fp != stdout ) {
-    fclose(fp);
-  }
-
-  return fOk;
+  return fok;
 }
 
-EVP_PKEY * cf_read_private_key_hex(const char * filename)
+EVP_PKEY * cf_read_private_key_hex(const char * fname)
 {
-  EVP_PKEY * pkey = NULL;
   FILE * fp = NULL;
+  EVP_PKEY * pkey = NULL;
 
-  if ( !filename || !*filename ) {
-    CF_SSL_ERR(CF_SSL_ERR_INVALID_ARG, "No input file name provided");
-    goto end;
-  }
-
-  if ( strcasecmp(filename, "stdin") == 0 ) {
-    fp = stdin;
-  }
-  else if ( !(fp = fopen(filename, "r")) ) {
-    CF_SSL_ERR(CF_SSL_ERR_STDIO, "Can not read '%s': %s", filename, strerror(errno));
-    goto end;
-  }
-
-  pkey = cf_read_private_key_hex_fp(fp);
-
-end : ;
-
-  if ( fp != NULL && fp != stdin ) {
-    fclose(fp);
+  if ( (fp = cf_getfp(fname, "r", NULL)) ) {
+    pkey = cf_read_private_key_hex_fp(fp);
+    cf_closefp(&fp);
   }
 
   return pkey;
