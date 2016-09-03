@@ -46,7 +46,7 @@ HEADERS = $(addprefix include/cuttle/, \
 						debug.h \
 						daemon.h \
 						opts.h \
-						pgdb.h \
+						pg.h \
 						ifaddrs.h \
 						hexbits.h \
 						ssl-init.h \
@@ -60,7 +60,7 @@ SOURCES  =  $(addprefix src/,\
 						debug.c \
 						daemon.c \
 						opts.c \
-						pgdb.c \
+						pg.c \
 						ifaddrs.c \
 						hexbits.c \
 						getfp.c	\
@@ -100,9 +100,9 @@ install: $(LIB) $(installdirs)
 
 
 uninstall:
-	rm $(DESTDIR)/$(libdir)/$(LIB)
-	rm $(DESTDIR)/$(pc)
-	rm -r $(DESTDIR)/$(incdir)/cuttle/grpc++
+	rm -f $(DESTDIR)/$(libdir)/$(LIB)
+	rm -f $(DESTDIR)/$(pc)
+	rm -f $(DESTDIR)/$(incdir)/cuttle/*.h
 
 test:
 	@echo "CC=$(CC)"

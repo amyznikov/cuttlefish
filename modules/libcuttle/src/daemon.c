@@ -45,7 +45,7 @@ static void my_signal_handler(int signum, siginfo_t *si, void * context)
     case SIGFPE :
     case SIGABRT :
       status = EXIT_FAILURE;
-      CF_EMERGE("Fault address:%p from %p", si->si_addr, caller_address);
+      CF_FATAL("Fault address:%p from %p", si->si_addr, caller_address);
       CF_PBT();
     break;
 

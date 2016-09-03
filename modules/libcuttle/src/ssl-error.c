@@ -8,6 +8,7 @@
 #define _GNU_SOURCE
 
 #include "cuttle/ssl-error.h"
+#include "cuttle/debug.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,6 +69,7 @@ static ERR_STRING_DATA cf_crypto_str_reasons[]= {
   {ERR_REASON(CF_SSL_ERR_PTHREAD)     , "pthread error" },
   {ERR_REASON(CF_SSL_ERR_EPOLL)       , "epoll error" },
   {ERR_REASON(CF_SSL_ERR_CUTTLE)      , "libcuttle error" },
+  {ERR_REASON(CF_SSL_ERR_APP)         , "app error" },
 
   {0,NULL}
 };
@@ -155,8 +157,4 @@ void cf_ssl_error(const char * func, int reason, char * file, int line, char * f
 
     free(errmsg);
   }
-
 }
-
-
-

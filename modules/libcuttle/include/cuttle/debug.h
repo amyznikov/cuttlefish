@@ -19,14 +19,13 @@ extern "C" {
 #endif
 
 enum {
-  CF_LOG_EMERG   = 0,   /* system is unusable */
-  CF_LOG_ALERT   = 1,   /* action must be taken immediately */
-  CF_LOG_CRIT    = 2,   /* critical conditions */
-  CF_LOG_ERR     = 3,   /* error conditions */
-  CF_LOG_WARNING = 4,   /* warning conditions */
-  CF_LOG_NOTICE  = 5,   /* normal but significant condition */
-  CF_LOG_INFO    = 6,   /* informational */
-  CF_LOG_DEBUG   = 7,   /* debug-level messages */
+  CF_LOG_FATAL   = 0,   /* system is unusable */
+  CF_LOG_CRITICAL= 1,   /* critical conditions */
+  CF_LOG_ERROR   = 2,   /* error conditions */
+  CF_LOG_WARNING = 3,   /* warning conditions */
+  CF_LOG_NOTICE  = 4,   /* normal but significant condition */
+  CF_LOG_INFO    = 5,   /* informational */
+  CF_LOG_DEBUG   = 6,   /* debug-level messages */
   CF_LOG_EVENT   = 0x8  /* custom event masks start here */
 };
 
@@ -43,10 +42,8 @@ void cf_plog(int pri, const char * func, int line, const char * format, ...)
 
 void cf_pbt(void);
 
-
-#define CF_EMERGE(...)    cf_plog(CF_LOG_EMERG  , __func__, __LINE__, __VA_ARGS__)
-#define CF_ALERT(...)     cf_plog(CF_LOG_ALERT  , __func__, __LINE__, __VA_ARGS__)
-#define CF_CRITICAL(...)  cf_plog(CF_LOG_CRIT   , __func__, __LINE__, __VA_ARGS__)
+#define CF_FATAL(...)     cf_plog(CF_LOG_FATAL  , __func__, __LINE__, __VA_ARGS__)
+#define CF_CRITICAL(...)  cf_plog(CF_LOG_CRITICAL,__func__, __LINE__, __VA_ARGS__)
 #define CF_ERROR(...)     cf_plog(CF_LOG_ERR    , __func__, __LINE__, __VA_ARGS__)
 #define CF_WARNING(...)   cf_plog(CF_LOG_WARNING, __func__, __LINE__, __VA_ARGS__)
 #define CF_NOTICE(...)    cf_plog(CF_LOG_NOTICE , __func__, __LINE__, __VA_ARGS__)
@@ -54,6 +51,7 @@ void cf_pbt(void);
 #define CF_DEBUG(...)     cf_plog(CF_LOG_DEBUG  , __func__, __LINE__, __VA_ARGS__)
 #define CF_EVENT(e,...)   cf_plog(e, __func__, __LINE__, __VA_ARGS__)
 
+// fixme: check the http://svn.pld-linux.org/svn/backtracexx/
 #define CF_PBT()          cf_pbt()
 
 #ifdef __cplusplus

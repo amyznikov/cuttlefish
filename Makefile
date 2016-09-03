@@ -11,12 +11,13 @@ include arch/$(ARCH)/config
 include arch/$(ARCH)/toolchain
 
 
+# order is important due to dependency issues
 ALL_MODULES = \
 	cuttlessl \
-	libcuttle \
+	protobuf \
 	grpc \
 	cuttle-grpc \
-	protobuf \
+	libcuttle \
 	ffmpeg \
 	x264
 
@@ -39,7 +40,7 @@ export HOST_LDXX
 ############################################################
 
 if-enabled = \
-	$(if $(or $(filter y,$(with-$1)),$(filter s,$(with_$1))),$2,)
+	$(if $(or $(filter y,$(with-$1)),$(filter s,$(with-$1))),$2,)
 
 if-build = \
 	$(if $(filter y,$(with-$1)),$2,$3)
@@ -101,7 +102,8 @@ $(PACKAGE_ALL):
 	$(CURDIR)/buildpkg --config $(CURDIR)/arch/$(ARCH)/makepkg.conf \
 		PREFIX=$(PREFIX) \
 		SOURCE_DIR=$(CURDIR)/modules/$(@:package-%=%) \
-		GRPC_CONFIG=$(GRPC_CONFIG)
+		GRPC_CONFIG=$(GRPC_CONFIG) \
+		${pkgargs}
 
 
 $(OBJDIR)/% :
@@ -119,6 +121,11 @@ cuttlessl: configure-cuttlessl build-cuttlessl install-cuttlessl
 install-cuttlessl: $(INSTALLDIR)
 	$(MAKE) -C $(CURDIR)/modules/cuttlessl install_sw
 
+uninstall-cuttlessl:
+	rm -f $(INSTALLDIR)/$(PREFIX)/bin/{c_rehash,openssl}
+	rm -rf $(INSTALLDIR)/$(PREFIX)/include/openssl $(INSTALLDIR)/$(PREFIX)/ssl
+	rm -f $(INSTALLDIR)/$(PREFIX)/lib/libcrypto* $(INSTALLDIR)/$(PREFIX)/lib/libssl* $(INSTALLDIR)/$(PREFIX)/lib/pkgconfig/{libcrypto.pc,libssl.pc,openssl.pc}
+	rm -rf $(INSTALLDIR)/$(PREFIX)/lib/engines 
 
 build-cuttlessl:
 	$(MAKE) -C $(CURDIR)/modules/cuttlessl depend all
@@ -147,6 +154,7 @@ install-protobuf: $(INSTALLDIR)
 
 uninstall-protobuf:
 	$(MAKE) -C $(CURDIR)/modules/protobuf V=1 uninstall DESTDIR=$(INSTALLDIR)
+	rm -rf $(INSTALLDIR)/$(PREFIX)/include/google/protobuf
 
 $(CURDIR)/modules/protobuf/config.h: $(CURDIR)/modules/protobuf/configure
 	cd $(CURDIR)/modules/protobuf && ./configure \

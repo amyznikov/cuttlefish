@@ -12,11 +12,13 @@
 #include <string.h>
 
 
-// self-signed:
-// $ x509-test keytype=rsa pkeyout=ca.pem certout=ca.cer CN=rootCA OU="Special-IS CA"
+// self-signed ca root:
+// $ ./x509-test keytype=rsa pkeyout=ca.pem pubkeyout=ca.pub certout=ca.cer ext=keyUsage:critical,keyCertSign,cRLSign ext=basicConstraints:critical,CA:TRUE
 
 // issued:
 // $ x509-test keytype=rsa pkeyout=domain.pem certout=domain.cer ca=ca.cer cakey=ca.pem
+
+// see $ man x509v3_config
 
 int main(int argc, char *argv[])
 {
@@ -46,6 +48,24 @@ int main(int argc, char *argv[])
   const EVP_MD * md = NULL;
   const char * digest_name = NULL;
 
+  const int maxext = 128;
+  int nbext = 0;
+  struct cf_x509_ext ext[maxext];
+
+
+  /////////////////
+
+
+  if ( !cf_ssl_initialize() ) {
+    fprintf(stderr, "cf_ssl_initialize() fails\n");
+    ERR_print_errors_fp(stderr);
+    goto end;
+  }
+
+
+  /////////////////
+
+
   for ( int i = 1; i < argc; ++i ) {
 
     if ( strcmp(argv[i], "help") == 0 || strcmp(argv[i], "-help") == 0 || strcmp(argv[i], "--help") == 0 ) {
@@ -58,16 +78,17 @@ int main(int argc, char *argv[])
           "   [keyparams=<keyparams>]\n"
           "   [md=<digestname>, see $ openssl list-message-digest-algorithms]\n"
           "   [pkeyout=<output-private-key.pem>]\n"
-          "   [pubkeyout=<output-public-key.pem>] \n"
-          "   [certout=<output-cert.cer>] \n"
-          "   [ca=<ca.cer>] \n"
-          "   [cakey=<cakey.pem>] \n"
-          "   [C=<Country-Code>] \n"
-          "   [ST=<State-Or-Province>] \n"
-          "   [L=<Location-Or-City>] \n"
-          "   [O=<Organization>] \n"
-          "   [OU=<Organization-Unit>] \n"
-          "   [CN=<Common-Name>] \n"
+          "   [pubkeyout=<output-public-key.pem>]\n"
+          "   [certout=<output-cert.cer>]\n"
+          "   [ca=<ca.cer>]\n"
+          "   [cakey=<cakey.pem>]\n"
+          "   [C=<Country-Code>]\n"
+          "   [ST=<State-Or-Province>]\n"
+          "   [L=<Location-Or-City>]\n"
+          "   [O=<Organization>]\n"
+          "   [OU=<Organization-Unit>]\n"
+          "   [CN=<Common-Name>]\n"
+          "   [ext=sn:value]\n"
           " \n");
 
       printf("keytype examples: \n\n");
@@ -151,6 +172,27 @@ int main(int argc, char *argv[])
     else if ( strncmp(argv[i], "CN=", 3) == 0 ) {
       subj_CN = argv[i] + 3;
     }
+    else if ( strncmp(argv[i], "ext=", 4) == 0 ) {
+      char * s, * v;
+      if ( nbext >= maxext ) {
+        fprintf(stderr, "too many extentions\n");
+        return 1;
+      }
+      if ( !*(s = argv[i] + 4) || !(v = strchr(s + 1, ':')) ) {
+        fprintf(stderr, "syntax error in '%s'\n", argv[i]);
+        return 1;
+      }
+
+      *v = 0;
+
+      if ( !(ext[nbext].nid =  OBJ_sn2nid(s)) ) {
+        fprintf(stderr, "OBJ_sn2nid(%s) fails: %s\n", s, argv[i]);
+        return 1;
+      }
+
+      ext[nbext].value = v + 1;
+      ++nbext;
+    }
     else {
       fprintf(stderr, "Invalid argument %s\n", argv[i]);
       return 1;
@@ -160,15 +202,6 @@ int main(int argc, char *argv[])
 
   cf_set_loglevel(CF_LOG_DEBUG);
   cf_set_logfilename("stderr");
-
-
-  /////////////////
-
-  if ( !cf_ssl_initialize() ) {
-    fprintf(stderr, "cf_ssl_initialize() fails\n");
-    ERR_print_errors_fp(stderr);
-    goto end;
-  }
 
 
   /////////////////
@@ -202,7 +235,7 @@ int main(int argc, char *argv[])
   x509 = cf_x509_new(&pk, &(struct cf_x509_create_args ) {
 
       .md = md,
-      .serial = 1,
+      .serial = rand(),
 
       .ca = {
         .cert = ca,
@@ -228,6 +261,9 @@ int main(int argc, char *argv[])
         .common_name = subj_CN,
         .email = "andrey.myznikov@gmail.com",
       },
+
+      .ext = ext,
+      .nbext = nbext
     });
 
 

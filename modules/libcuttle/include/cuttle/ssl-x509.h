@@ -25,6 +25,12 @@ extern "C" {
 
 
 typedef
+struct cf_x509_ext {
+  int nid;
+  const char * value;
+} cf_x509_ext;
+
+typedef
 struct cf_x509_create_args {
 
   const EVP_MD * md;
@@ -65,6 +71,9 @@ struct cf_x509_create_args {
       } period;
     } notAfter;
   } valididy;
+
+  const struct cf_x509_ext * ext;
+  int nbext;
 
   int serial;
 

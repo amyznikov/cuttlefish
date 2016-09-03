@@ -1,5 +1,5 @@
 /*
- * pgdb.c
+ * cuttle/pg.c
  *
  *  Created on: Jan 17, 2016
  *      Author: amyznikov
@@ -7,7 +7,7 @@
 
 #define _GNU_SOURCE
 
-#include "cuttle/pgdb.h"
+#include "cuttle/pg.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>

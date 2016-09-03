@@ -15,6 +15,7 @@
 #include <sys/syscall.h>
 #include <errno.h>
 #include <execinfo.h>
+#include <openssl/err.h>
 
 #if __ANDROID__
   # include <android/log.h>
@@ -73,7 +74,7 @@ struct ctime {
 static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 static FILE * fplog = NULL;
 static char * logfilename = NULL;
-static uint32_t logmask = CF_LOG_ERR;
+static uint32_t logmask = CF_LOG_INFO;
 
 
 static inline pid_t gettid() {
@@ -111,18 +112,17 @@ static inline void plogbegin(int pri)
 #if !__ANDROID__
   const char * ctrl = NULL;
   switch ( pri ) {
-  case CF_LOG_ALERT:
-    case CF_LOG_CRIT:
+    case CF_LOG_FATAL:
+    case CF_LOG_CRITICAL:
       ctrl = TCFG_RED TC_BOLD;
     break;
-  case CF_LOG_ERR:
+  case CF_LOG_ERROR:
     ctrl = TCFG_RED;
     break;
   case CF_LOG_WARNING:
     ctrl = TCFG_YELLOW;
     break;
-  case CF_LOG_EMERG:
-    case CF_LOG_NOTICE:
+  case CF_LOG_NOTICE:
       ctrl = TC_BOLD;
     break;
   case CF_LOG_INFO:
@@ -146,23 +146,34 @@ static inline void plogend(int pri)
   const char * ctrl = NULL;
   switch ( pri )
   {
-  case CF_LOG_ALERT:
-    case CF_LOG_CRIT:
-    case CF_LOG_ERR:
+  case CF_LOG_FATAL:
+    case CF_LOG_CRITICAL:
+    case CF_LOG_ERROR:
     case CF_LOG_WARNING:
-    case CF_LOG_EMERG:
+    case CF_LOG_NOTICE:
     case CF_LOG_INFO:
     case CF_LOG_DEBUG:
-    ctrl = TC_RESET "\n";
+    ctrl = TC_RESET;
     break;
   default:
-    ctrl = "\n";
     break;
   }
 
-  fputs(ctrl, fplog), fflush(fplog);
+  if ( ctrl ) {
+    fputs(ctrl, fplog), fflush(fplog);
+  }
 #endif
 }
+
+
+static void dump_ssl_errors(void)
+{
+  if ( ERR_peek_error() ) {
+    ERR_print_errors_fp(fplog);
+    ERR_clear_error();
+  }
+}
+
 
 
 bool cf_set_logfilename(const char * fname)
@@ -228,6 +239,8 @@ void cf_plogv(int pri, const char * func, int line, const char * format, va_list
     plogbegin(pri & 0x07);
     fprintf(fplog, "[%6d][%s] %-28s(): %4d :", gettid(), ctime_string(), func, line);
     vfprintf(fplog, format, arglist);
+    fputc('\n',fplog);
+    dump_ssl_errors();
     plogend(pri & 0x07);
 #endif
   }

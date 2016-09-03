@@ -21,6 +21,40 @@ static bool cf_x509_add_txt_entry(X509_NAME * name, const char * field, const ch
   return value ? X509_NAME_add_entry_by_txt(name, field, MBSTRING_ASC, (const uint8_t*) value, -1, -1, 0) : true;
 }
 
+// SN_subject_alt_name
+static bool cf_x509_add_ext(X509 * x, X509 * issuer, X509 * subj,  int nid, const char * value)
+{
+  X509_EXTENSION * ex = NULL;
+  X509V3_CTX ctx;
+  bool fok = false;
+
+  /* This sets the 'context' of the extensions. */
+  /* No configuration database */
+  X509V3_set_ctx_nodb(&ctx);
+
+  X509V3_set_ctx(&ctx, issuer, subj, NULL, NULL, 0);
+
+  if ( !(ex = X509V3_EXT_conf_nid(NULL, &ctx, nid, (char * )value)) ) {
+    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509V3_EXT_conf_nid() fails: nid=%d value=%s", nid, value);
+    goto end;
+  }
+
+  if ( !X509_add_ext(x, ex, -1) ) {
+    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_add_ext() fails: nid=%d value=%s", nid, value);
+    goto end;
+  }
+
+  fok = true;
+
+end:
+
+  if ( ex ) {
+    X509_EXTENSION_free(ex);
+  }
+  return fok;
+}
+
+
 X509 * cf_x509_new(EVP_PKEY ** ppk, const cf_x509_create_args * args)
 {
   X509 * x = NULL;
@@ -78,7 +112,7 @@ X509 * cf_x509_new(EVP_PKEY ** ppk, const cf_x509_create_args * args)
   }
 
   if ( !X509_set_version(x, 2) ) {
-    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_set_version(2) fails");
+    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_set_version(3) fails");
     goto end;
   }
 
@@ -157,6 +191,12 @@ X509 * cf_x509_new(EVP_PKEY ** ppk, const cf_x509_create_args * args)
     goto end;
   }
 
+  if ( !cf_x509_add_txt_entry(name, LN_pkcs9_emailAddress, args->subj.email) ) {
+    CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "cf_x509_add_txt_entry('Email') fails");
+    goto end;
+  }
+
+
   if ( !args->ca.cert ) {
     /* If self signed set the issuer name to be the same as the subject. */
     if ( !X509_set_issuer_name(x, name) ) {
@@ -176,6 +216,23 @@ X509 * cf_x509_new(EVP_PKEY ** ppk, const cf_x509_create_args * args)
     CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "X509_set_subject_name(name) fails");
     goto end;
   }
+
+
+//  if ( args->bas ) {
+//    if ( !cf_x509_add_ext(x, NULL, NULL, NID_basic_constraints, "critical,CA:TRUE") ) {
+//      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "cf_x509_add_ext(ca_kind) fails");
+//      goto end;
+//    }
+//  }
+  //add_ext(x, NID_key_usage, "critical,keyCertSign,cRLSign");
+
+  for ( int i = 0; i < args->nbext; ++i ) {
+    if ( !cf_x509_add_ext(x, NULL, NULL, args->ext[i].nid, args->ext[i].value) ) {
+      CF_SSL_ERR(CF_SSL_ERR_OPENSSL, "cf_x509_add_ext(nid=%d:%s) fails", args->ext[i].nid, args->ext[i].value);
+      goto end;
+    }
+  }
+
 
   if ( !(md = args->md) ) {
     md = cf_pkey_get_default_md(pkey);

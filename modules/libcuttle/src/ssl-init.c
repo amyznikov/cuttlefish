@@ -9,6 +9,8 @@
 
 #include "cuttle/ssl-init.h"
 #include "cuttle/ssl-error.h"
+#include "cuttle/debug.h"
+#include <openssl/crypto.h>
 #include <openssl/engine.h>
 #include <string.h>
 #include <pthread.h>
@@ -16,6 +18,29 @@
 
 #define UNUSED(x) (void)(x)
 
+
+/* defined in ssl-error.c */
+extern void cf_init_ssl_error_strings(void);
+
+
+/*********************************************************************************************************************
+ * OpenSSL verstion ssl-int compiled with
+ */
+
+int cf_get_opennssl_version_number(void)
+{
+ return OPENSSL_VERSION_NUMBER;
+}
+
+const char * cf_get_opennssl_version_string(void)
+{
+  return OPENSSL_VERSION_TEXT;
+}
+
+const char * cf_get_runtime_opennssl_version_string(void)
+{
+  return SSLeay_version(SSLEAY_VERSION);
+}
 
 
 /*********************************************************************************************************************
@@ -200,6 +225,7 @@ static bool cf_ssl_set_rand_method(void)
   //    }
   return true;
 }
+
 
 
 bool cf_ssl_initialize(void)

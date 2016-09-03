@@ -6,8 +6,8 @@
  */
 
 
-#ifndef __cuttle_pgdb_h__
-#define __cuttle_pgdb_h__
+#ifndef __cuttle_pg_h__
+#define __cuttle_pg_h__
 
 #include "libpq-fe.h"
 #include <stdbool.h>
@@ -142,4 +142,4 @@ PGnotify * pg_get_notify(PGconn * dbc, int tmo);
 }
 #endif
 
-#endif /* __cuttle_pgdb_h__ */
+#endif /* __cuttle_pg_h__ */
