@@ -32,11 +32,11 @@ $(installdirs):
 CPPFLAGS := -Iinclude -Isrc $(CPPFLAGS)
 
 # C Compiler and flags
-CC = $(cross)gcc
+CC ?= $(cross)gcc -std=c99
 CFLAGS=-Wall -Wextra -O3
 
 # C++ Compiler and flags
-CXX = $(cross)gcc -std=c++11
+CXX ?= $(cross)gcc -std=c++11
 CXXFLAGS=$(CFLAGS)
 
 
