@@ -29,7 +29,7 @@ $(installdirs):
 
 
 # preprocessor flags
-CPPFLAGS := -Iinclude -Isrc $(CPPFLAGS)
+CPPFLAGS := -Iinclude -Isrc -I/usr/include/postgresql -I/usr/local/include/postgresql $(CPPFLAGS)
 
 # C Compiler and flags
 CC ?= $(cross)gcc -std=c99
