@@ -5,6 +5,8 @@
  *      Author: amyznikov
  */
 
+#define _GNU_SOURCE
+
 #include "cuttle/opts.h"
 #include <stdio.h>
 #include <string.h>
@@ -12,6 +14,7 @@
 #include <errno.h>
 #include <pwd.h>
 #include <unistd.h>
+
 
 bool cf_read_config_file(const char * fname, bool (*parseopt)(char * key, char * value))
 {

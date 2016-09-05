@@ -1,6 +1,8 @@
 /*
  * cuttle/daemon.c
  */
+#define _GNU_SOURCE
+
 #include "cuttle/daemon.h"
 #include "cuttle/debug.h"
 #include <stdlib.h>

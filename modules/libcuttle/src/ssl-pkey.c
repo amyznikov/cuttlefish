@@ -5,6 +5,8 @@
  *      Author: amyznikov
  */
 
+#define _GNU_SOURCE 
+
 #include "cuttle/ssl-pkey.h"
 #include "cuttle/ssl-error.h"
 #include "cuttle/hexbits.h"

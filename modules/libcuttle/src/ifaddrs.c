@@ -2,6 +2,8 @@
  * ifaddrs.c
  */
 
+#define _GNU_SOURCE
+
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>

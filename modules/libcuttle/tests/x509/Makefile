@@ -31,8 +31,8 @@ MODULES = $(foreach s,$(SOURCES),$(addsuffix .o,$(basename $(s))))
 CPPFLAGS=$(DEFINES) $(INCLUDES)
 
 # C Compiler and flags
-CC = $(cross)gcc
-CFLAGS= -Wall -Wextra -O3 -g0
+CC = $(cross)gcc -std=gnu99
+CFLAGS= -Wall -Wextra -Wno-missing-field-initializers -O3 -g0
 
 # Loader Flags And Libraries
 LD=$(CC)
@@ -41,7 +41,7 @@ LDFLAGS = $(CFLAGS)
 # STRIP = $(cross)strip --strip-all
 STRIP = @echo "don't strip "
 
-LDLIBS += ../../libcuttle.a -L/usr/local/lib -lcrypto -lssl -ldl -lpthread
+LDLIBS += ../../libcuttle.a -L/usr/local/lib -lcrypto -lssl -lrt -ldl -lpthread
 
 
 #########################################

@@ -6,6 +6,7 @@
  *
  *  https://wiki.openssl.org/index.php/Libcrypto_API
  */
+#define _GNU_SOURCE
 
 #include "cuttle/ssl-init.h"
 #include "cuttle/ssl-error.h"
