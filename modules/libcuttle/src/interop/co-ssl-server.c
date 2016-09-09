@@ -12,7 +12,7 @@
 #include <string.h>
 #include "../ccarray.h"
 
-#define CO_SERVER_LISTENING_THREAD_STACK_SIZE         (256*1024)
+#define CO_SERVER_LISTENING_THREAD_STACK_SIZE         (64*1024)
 #define CO_SERVER_ACCEPTED_THREAD_STACK_SIZE       (2*1024*1024)
 
 
@@ -25,6 +25,7 @@ struct co_listening_thread_context {
   SSL_CTX * ssl_ctx;
   int sock_type;
   int transport_proto;
+  int accepted_stack_size;
   co_socket * listening_sock;
 } co_listening_thread_context;
 
@@ -100,7 +101,7 @@ static bool start_accepted_thread(co_listening_thread_context * listening_contex
   accepted_context->ssl_ctx = listening_context->ssl_ctx;
   accepted_context->on_accepted = listening_context->on_accepted;
 
-  if ( !co_schedule(co_server_accepted_thread, accepted_context, CO_SERVER_ACCEPTED_THREAD_STACK_SIZE) ) {
+  if ( !co_schedule(co_server_accepted_thread, accepted_context, listening_context->accepted_stack_size) ) {
     CF_CRITICAL("co_schedule(accepted_thread) fails: %s", strerror(errno));
     goto end;
   }
@@ -213,6 +214,8 @@ bool co_ssl_server_add_port(co_ssl_server * ssrv, const co_ssl_server_port_opts 
   memcpy(&listening_context->bind_address, &opts->bind_address, sizeof(opts->bind_address));
   listening_context->ssrv = ssrv;
   listening_context->on_accepted = opts->on_accepted;
+  listening_context->accepted_stack_size =
+      opts->accepted_stack_size > 0 ? opts->accepted_stack_size : CO_SERVER_ACCEPTED_THREAD_STACK_SIZE;
   listening_context->sock_type = opts->sock_type;
   listening_context->transport_proto = opts->proto;
 
