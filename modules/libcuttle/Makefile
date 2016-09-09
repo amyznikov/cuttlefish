@@ -78,8 +78,9 @@ install: $(LIB) $(installdirs)
 
 
 uninstall:
-#	$(RM) $(DESTDIR)/$(libdir)/$(LIB)
-#	$(RM) $(DESTDIR)/$(pc)
+	$(RM) $(DESTDIR)/$(libdir)/$(LIB)
+	$(RM) $(DESTDIR)/$(pc)
+	$(RM) $(addprefix $(DESTDIR)/$(prefix)/,$(HEADERS))
 	
 	
 
