@@ -18,7 +18,7 @@
 #include <cuttle/debug.h>
 #include <cuttle/sockopt.h>
 #include <cuttle/ssl/init-ssl.h>
-#include <cuttle/cothread/ssl.h>
+#include <cuttle/interop/co-ssl-server.h>
 
 
 
@@ -31,24 +31,13 @@ static char ServerCert[PATH_MAX];
 static char ServerKey[PATH_MAX];
 static SSL_CTX * g_ssl_ctx;
 
-
-static void processor_thread(void * arg)
+static void on_accepted_connection(co_ssl_server_context * context)
 {
   char buf[1024] = "";
   ssize_t cbrecv, cbsent;
-  co_socket * cc = NULL;
-  co_ssl_socket * ssl_sock = NULL;
-
+  co_ssl_socket * ssl_sock = context->ssl_sock;
 
   CF_DEBUG("Started");
-
-  cc = arg;
-
-  if ( !(ssl_sock = co_ssl_socket_accept(cc, g_ssl_ctx)) ) {
-    CF_CRITICAL("co_ssl_socket_accept() fails");
-    goto end;
-  }
-
 
   if ( (cbrecv = co_ssl_socket_recv(ssl_sock, buf, sizeof(buf) - 1)) < 0 ) {
     CF_CRITICAL("co_ssl_socket_recv() fails");
@@ -71,53 +60,15 @@ static void processor_thread(void * arg)
 
 end:
 
-  if ( ssl_sock ) {
-    co_ssl_socket_close(&ssl_sock, false);
-  }
-  else {
-    co_socket_close(&cc, true);
-  }
-
   CF_DEBUG("Finished");
 }
 
-static void server_thread(void * arg)
-{
-  (void)(arg);
-
-  co_socket * cc, * cc2;
-
-  struct sockaddr_in addrs = {
-    .sin_family = AF_INET,
-    .sin_addr.s_addr = 0,
-    .sin_port = htons(6008),
-    .sin_zero = {0}
-  };
-
-
-  if ( !(cc = co_ssl_tcp_listen((struct sockaddr *)&addrs)) ) {
-    CF_FATAL("co_ssl_tcp_listen() fails: %s", strerror(errno));
-    goto end;
-  }
-
-  CF_DEBUG("Started listen port 6008");
-
-  while ( (cc2 = co_socket_accept_new(cc, NULL, 0)) ) {
-    if ( !co_schedule(processor_thread, cc2, PROCESSOR_THREAD_STACK_SIZE) ) {
-      CF_CRITICAL("co_schedule(processor_thread) fails: %s", strerror(errno));
-      co_socket_close(&cc2, true);
-    }
-  }
-
-end:
-
-  co_socket_close(&cc, true);
-
-  CF_DEBUG("Finished");
-}
 
 int main(int argc, char *argv[])
 {
+  co_ssl_server * server = NULL;
+
+
   for ( int i = 1; i < argc; ++i ) {
 
     if ( strcmp(argv[i], "help") == 0 || strcmp(argv[i], "-help") == 0 || strcmp(argv[i], "--help") == 0 ) {
@@ -190,10 +141,32 @@ int main(int argc, char *argv[])
     goto end;
   }
 
-  if ( !co_schedule(server_thread, NULL, SERVER_THREAD_STACK_SIZE )) {
-    CF_FATAL("co_schedule(server_thread) fails: %s", strerror(errno));
+
+  if ( !(server = co_ssl_server_new(NULL)) ) {
+    CF_FATAL("co_server_new() fails");
     goto end;
   }
+
+  co_ssl_server_add_port(server, &(struct co_server_port_opts ) {
+        .bind_address.in = {
+          .sin_family = AF_INET,
+          .sin_port = htons(6008),
+          .sin_addr.s_addr = 0,
+        },
+        .ssl_ctx = g_ssl_ctx,
+        .on_accepted = on_accepted_connection
+      });
+
+
+  if ( !co_ssl_server_start(server) ) {
+    CF_FATAL("co_server_start() fails");
+    goto end;
+  }
+
+//  if ( !co_schedule(server_thread, NULL, SERVER_THREAD_STACK_SIZE )) {
+//    CF_FATAL("co_schedule(server_thread) fails: %s", strerror(errno));
+//    goto end;
+//  }
 
   while ( 42 ) {
     sleep(1);

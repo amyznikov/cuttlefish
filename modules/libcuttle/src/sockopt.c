@@ -7,15 +7,15 @@
 
 #define _GNU_SOURCE
 
-#include "cuttle/sockopt.h"
+#include <unistd.h>
 #include <errno.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
-#include <sys/un.h>
 #include <sys/ioctl.h>
-#include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
+#include "cuttle/sockopt.h"
 
 int so_get_error(int so)
 {
@@ -33,15 +33,15 @@ int so_get_error(int so)
 }
 
 
-socklen_t so_get_addrslen(int af)
+socklen_t so_get_addrlen(const struct sockaddr * addr)
 {
-  switch ( af ) {
+  switch ( addr->sa_family ) {
     case AF_INET :
       return sizeof(struct sockaddr_in);
     case AF_INET6 :
       return sizeof(struct sockaddr_in6);
     case AF_UNIX :
-      return sizeof(struct sockaddr_un);
+      return offsetof(struct sockaddr_un, sun_path) + strlen(((struct sockaddr_un*) addr)->sun_path);
   }
   return 0;
 }

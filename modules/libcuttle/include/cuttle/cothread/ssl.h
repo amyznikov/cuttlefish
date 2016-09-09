@@ -43,11 +43,14 @@ ssize_t co_ssl_socket_send(co_ssl_socket * ssl_sock, const void * buf, size_t si
 ssize_t co_ssl_socket_recv(co_ssl_socket * ssl_sock, void * buf, size_t size);
 
 
+co_socket * co_ssl_listen(const struct sockaddr * addrs, int sock_type, int proto);
+
 /** TODO: add additional options for new SSL object */
 co_ssl_socket * co_ssl_socket_accept(co_socket * cc, SSL_CTX * ssl_ctx);
 co_socket * co_ssl_tcp_listen(const struct sockaddr * addrs);
 co_ssl_socket * co_ssl_tcp_connect(const struct sockaddr * address, int tmo_ms, SSL_CTX * ssl_ctx);
 co_ssl_socket * co_ssl_tcp_server_connect(const char * server, uint16_t port, int tmo_ms, SSL_CTX * ssl_ctx);
+
 
 
 

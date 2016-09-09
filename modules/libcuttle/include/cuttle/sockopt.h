@@ -9,9 +9,14 @@
 #ifndef __cuttle_sockopt_h__
 #define __cuttle_sockopt_h__
 
+#include <stddef.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/un.h>
+#include <netinet/in.h>
+
 
 
 #ifdef __cplusplus
@@ -19,9 +24,19 @@ extern "C" {
 #endif
 
 
+typedef
+union sockaddr_type {
+  struct sockaddr sa;
+  struct sockaddr_in in;
+  struct sockaddr_in6 in6;
+  struct sockaddr_un un;
+  struct sockaddr_storage ss;
+} sockaddr_type;
+
+
 int so_get_error(int so);
 
-socklen_t so_get_addrslen(int af);
+socklen_t so_get_addrlen(const struct sockaddr * addr);
 
 bool so_set_send_bufsize(int so, int size);
 int so_get_send_bufsize(int so, int * size);

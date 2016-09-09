@@ -254,6 +254,69 @@ co_ssl_socket * co_ssl_socket_accept(co_socket * cc, SSL_CTX * ssl_ctx)
 }
 
 
+co_socket * co_ssl_listen(const struct sockaddr * addrs, int sock_type, int proto)
+{
+  co_socket * cc = NULL;
+  int so = -1;
+
+  bool fok = false;
+
+  if ( !sock_type ) {
+    sock_type = SOCK_STREAM;
+  }
+
+  if ( !proto ) {
+    proto = IPPROTO_TCP;
+  }
+
+  if ( (so = socket(addrs->sa_family, sock_type, proto)) == -1 ) {
+    CF_SSL_ERR(CF_SSL_ERR_STDIO, "socket(sa_family=%d sock_type=%d proto=%d) fails: %s", addrs->sa_family, sock_type,
+        proto, strerror(errno));
+    goto end;
+  }
+
+  so_set_reuse_addrs(so, 1);
+
+  if ( !so_set_non_blocking(so, 1) ) {
+    CF_SSL_ERR(CF_SSL_ERR_STDIO, "so_set_non_blocking() fails: %s", strerror(errno));
+    goto end;
+  }
+
+  if ( bind(so, addrs, so_get_addrlen(addrs)) == -1 ) {
+    CF_SSL_ERR(CF_SSL_ERR_STDIO, "bind() fails: %s", strerror(errno));
+    goto end;
+  }
+
+  if ( listen(so, SOMAXCONN) == -1 ) {
+    CF_SSL_ERR(CF_SSL_ERR_STDIO, "listen() fails: %s", strerror(errno));
+    goto end;
+  }
+
+  if ( !(cc = co_socket_new(so)) ) {
+    CF_SSL_ERR(CF_SSL_ERR_STDIO, "co_socket_new() fails: %s", strerror(errno));
+    goto end;
+  }
+
+  fok = true;
+
+end: ;
+
+  if ( !fok ) {
+
+    int errno_backup = errno;
+
+    if ( cc ) {
+      co_socket_close(&cc, true);
+    }
+
+    errno = errno_backup;
+  }
+
+  return cc;
+
+}
+
+
 
 co_ssl_socket * co_ssl_tcp_connect(const struct sockaddr * address,  int tmo_ms, SSL_CTX * ssl_ctx)
 {
@@ -271,7 +334,7 @@ co_ssl_socket * co_ssl_tcp_connect(const struct sockaddr * address,  int tmo_ms,
   }
 
 
-  if ( !(cc = co_socket_connect_new(so, address, so_get_addrslen(address->sa_family), tmo_ms)) ) {
+  if ( !(cc = co_socket_connect_new(so, address, so_get_addrlen(address), tmo_ms)) ) {
     CF_SSL_ERR(CF_SSL_ERR_STDIO, "co_socket_connect_new(so=%d) fails: %s", so, strerror(errno));
     goto end;
   }
@@ -382,7 +445,7 @@ co_socket * co_ssl_tcp_listen(const struct sockaddr * addrs)
     goto end;
   }
 
-  if ( bind(so, addrs, so_get_addrslen(addrs->sa_family)) == -1 ) {
+  if ( bind(so, addrs, so_get_addrlen(addrs)) == -1 ) {
     CF_SSL_ERR(CF_SSL_ERR_STDIO, "bind() fails: %s", strerror(errno));
     goto end;
   }
