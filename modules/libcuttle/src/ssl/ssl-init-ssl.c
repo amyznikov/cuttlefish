@@ -1,5 +1,6 @@
+
 /*
- * ssl-init.c
+ * init-ssl.c
  *
  *  Created on: Aug 31, 2016
  *      Author: amyznikov
@@ -8,11 +9,12 @@
  */
 #define _GNU_SOURCE
 
-#include "cuttle/ssl-init.h"
-#include "cuttle/ssl-error.h"
-#include "cuttle/debug.h"
+#include <cuttle/debug.h>
+#include <cuttle/ssl/init-ssl.h>
+#include <cuttle/ssl/error.h>
 #include <openssl/crypto.h>
 #include <openssl/engine.h>
+#include <openssl/ssl.h>
 #include <string.h>
 #include <pthread.h>
 
@@ -233,10 +235,9 @@ bool cf_ssl_initialize(void)
 {
   static bool is_initialized = false;
 
-
   if ( !is_initialized ) {
 
-    cf_ssl_thread_setup();
+    SSL_library_init();
 
     OPENSSL_no_config();
 
@@ -256,6 +257,8 @@ bool cf_ssl_initialize(void)
     OpenSSL_add_all_ciphers();
     OpenSSL_add_all_digests();
     OpenSSL_add_all_algorithms();
+
+    cf_ssl_thread_setup();
 
     is_initialized = true;
   }

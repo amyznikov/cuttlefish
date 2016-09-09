@@ -9,11 +9,12 @@
  */
 
 
-#include "cuttle/ssl-x509.h"
-#include "cuttle/ssl-pkey.h"
-#include "cuttle/ssl-error.h"
+#include <cuttle/ssl/error.h>
+#include <cuttle/ssl/pkey.h>
+#include <cuttle/ssl/x509.h>
 #include "getfp.h"
 #include <string.h>
+#include <strings.h>
 
 
 static bool cf_x509_add_txt_entry(X509_NAME * name, const char * field, const char * value)

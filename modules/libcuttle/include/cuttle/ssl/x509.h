@@ -1,5 +1,5 @@
 /*
- * x509.h
+ * cuttle/ssl/ssl-x509.h
  *
  *  Created on: Aug 31, 2016
  *      Author: amyznikov
@@ -7,8 +7,8 @@
 
 // #pragma once
 
-#ifndef __cuttle_x509_h__
-#define __cuttle_x509_h__
+#ifndef __cuttle_ssl_x509_h__
+#define __cuttle_ssl_x509_h__
 
 #include <stddef.h>
 #include <stdint.h>

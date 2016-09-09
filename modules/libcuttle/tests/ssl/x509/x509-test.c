@@ -5,10 +5,10 @@
  *      Author: amyznikov
  */
 
-#include "cuttle/ssl-init.h"
-#include "cuttle/ssl-pkey.h"
-#include "cuttle/ssl-x509.h"
-#include "cuttle/debug.h"
+#include <cuttle/ssl/init-ssl.h>
+#include <cuttle/ssl/pkey.h>
+#include <cuttle/ssl/x509.h>
+#include <cuttle/debug.h>
 #include <string.h>
 
 

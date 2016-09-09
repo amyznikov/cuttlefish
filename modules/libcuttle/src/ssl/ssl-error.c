@@ -7,13 +7,14 @@
 
 #define _GNU_SOURCE
 
-#include "cuttle/ssl-error.h"
-#include "cuttle/debug.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+
+#include <cuttle/debug.h>
+#include <cuttle/ssl/error.h>
 
 
 #define CF_LIB_NAME        "libCUTTLE"
@@ -157,4 +158,30 @@ void cf_ssl_error(const char * func, int reason, char * file, int line, char * f
 
     free(errmsg);
   }
+}
+
+
+const char * cf_get_ssl_error_string(SSL * ssl, int call_status)
+{
+  int ssl_status;
+
+  switch ( ssl_status = SSL_get_error(ssl, call_status) ) {
+    case SSL_ERROR_NONE :
+      return "SSL_ERROR_NONE";
+    case SSL_ERROR_WANT_CONNECT :
+      return "SSL_ERROR_WANT_CONNECT";
+    case SSL_ERROR_WANT_ACCEPT :
+      return "SSL_ERROR_WANT_ACCEPT";
+    case SSL_ERROR_WANT_WRITE :
+      return "SSL_ERROR_WANT_WRITE";
+    case SSL_ERROR_WANT_READ :
+      return "SSL_ERROR_WANT_READ";
+    case SSL_ERROR_WANT_X509_LOOKUP :
+      return "SSL_ERROR_WANT_X509_LOOKUP";
+    case SSL_ERROR_ZERO_RETURN :
+      return "Shutdown";
+    case SSL_ERROR_SYSCALL :
+      return strerror(errno);
+  }
+  return "";
 }

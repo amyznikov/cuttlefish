@@ -12,6 +12,7 @@
 
 #include <openssl/conf.h>
 #include <openssl/err.h>
+#include <openssl/ssl.h>
 
 
 #ifdef __cplusplus
@@ -35,6 +36,10 @@ extern "C" {
 void cf_ssl_error(const char * func, int reason, char * file, int line, char * msg, ...)
   __attribute__ ((__format__ (__printf__, 5, 6)));
 
+
+const char * cf_ssl_error_string(int ssl_error);
+
+const char * cf_get_ssl_error_string(SSL * ssl, int call_status);
 
 
 #ifdef __cplusplus

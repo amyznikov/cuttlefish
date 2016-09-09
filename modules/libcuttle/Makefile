@@ -33,7 +33,7 @@ CPPFLAGS := -Iinclude -Isrc -I/usr/include/postgresql -I/usr/local/include/postg
 
 # C Compiler and flags
 CC ?= $(cross)gcc -std=c99
-CFLAGS=-Wall -Wextra -O3
+CFLAGS=-Wall -Wextra -O3 -g3
 
 # C++ Compiler and flags
 CXX ?= $(cross)gcc -std=c++11
@@ -42,36 +42,14 @@ CXXFLAGS=$(CFLAGS)
 
 #########################################
 
-HEADERS = $(addprefix include/cuttle/, \
-						debug.h \
-						daemon.h \
-						opts.h \
-						pg.h \
-						ifaddrs.h \
-						hexbits.h \
-						ssl-init.h \
-						ssl-error.h \
-						ssl-pkey.h \
-						ssl-x509.h \
-						)
+HEADERS += $(wildcard include/cuttle/*.h include/cuttle/*/*.h)
+INTERNAL_HEADERS += $(wildcard src/*.h src/*/*.h)
 
+SOURCES += $(wildcard src/*.c src/*/*.c)
 
-SOURCES  =  $(addprefix src/,\
-						debug.c \
-						daemon.c \
-						opts.c \
-						pg.c \
-						ifaddrs.c \
-						hexbits.c \
-						getfp.c	\
-						ssl-init.c \
-						ssl-error.c \
-						ssl-pkey.c \
-						ssl-x509.c \
-						)
 
 MODULES  =  $(addsuffix .o,$(basename $(SOURCES)))
-$(MODULES): $(HEADERS)
+$(MODULES): $(HEADERS) $(INTERNAL_HEADERS)
 
 lib : $(LIB)($(MODULES))
 clean : ; $(RM) $(MODULES)
@@ -100,9 +78,10 @@ install: $(LIB) $(installdirs)
 
 
 uninstall:
-	rm -f $(DESTDIR)/$(libdir)/$(LIB)
-	rm -f $(DESTDIR)/$(pc)
-	rm -f $(DESTDIR)/$(incdir)/cuttle/*.h
+#	$(RM) $(DESTDIR)/$(libdir)/$(LIB)
+#	$(RM) $(DESTDIR)/$(pc)
+	
+	
 
 test:
 	@echo "CC=$(CC)"

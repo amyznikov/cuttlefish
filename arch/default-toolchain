@@ -1,7 +1,7 @@
 # Make variables (CC, etc...)
 AS        = $(CROSS_COMPILE)as
-CC        = $(CROSS_COMPILE)gcc -std=c99
-CXX       = $(CROSS_COMPILE)g++
+CC        = $(CROSS_COMPILE)gcc -std=gnu99
+CXX       = $(CROSS_COMPILE)g++ -std=c+11
 CPP       = $(CC) -E
 LD        = $(CC)
 LDXX      = $(CXX)
@@ -11,7 +11,7 @@ STRIP     = $(CROSS_COMPILE)strip
 OBJCOPY   = $(CROSS_COMPILE)objcopy
 OBJDUMP   = $(CROSS_COMPILE)objdump
 
-HOST_CC   = gcc -std=c99
-HOST_CXX  = g++
+HOST_CC   = gcc -std=gnu99
+HOST_CXX  = g++ -std=c++11
 HOST_LD   = $(HOST_CC)
 HOST_LDXX = $(HOST_CXX)

@@ -5,14 +5,14 @@
  *      Author: amyznikov
  */
 
-#define _GNU_SOURCE 
+#define _GNU_SOURCE
 
-#include "cuttle/ssl-pkey.h"
-#include "cuttle/ssl-error.h"
-#include "cuttle/hexbits.h"
-#include "getfp.h"
+#include <cuttle/ssl/error.h>
+#include <cuttle/ssl/pkey.h>
+#include <cuttle/hexbits.h>
 #include <string.h>
 #include <ctype.h>
+#include "getfp.h"
 
 static inline const EVP_CIPHER * cf_cipher_by_name(const char * cname)
 {

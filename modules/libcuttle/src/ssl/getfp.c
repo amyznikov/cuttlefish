@@ -5,10 +5,11 @@
  *      Author: amyznikov
  */
 
-#include "getfp.h"
-#include "cuttle/ssl-error.h"
+#include <cuttle/ssl/error.h>
 #include <string.h>
+#include <strings.h>
 #include <errno.h>
+#include "getfp.h"
 
 
 FILE * cf_getfp(const char * fname, const char * mode, bool * fok)

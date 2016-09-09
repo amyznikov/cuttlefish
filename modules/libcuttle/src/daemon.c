@@ -3,8 +3,8 @@
  */
 #define _GNU_SOURCE
 
-#include "cuttle/daemon.h"
-#include "cuttle/debug.h"
+#include <cuttle/daemon.h>
+#include <cuttle/debug.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>

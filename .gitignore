@@ -4,6 +4,14 @@ gens
 libs
 objs
 
+*.o
+*.a
+*.so
+
+distrib/*/pkg
+distrib/*/src
+distrib/*/*.pkg.tar.xz
+
 # Python items
 cython_debug/
 python_build/

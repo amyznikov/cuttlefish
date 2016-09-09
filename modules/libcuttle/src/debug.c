@@ -7,7 +7,7 @@
 
 #define _GNU_SOURCE
 
-#include "cuttle/debug.h"
+#include <cuttle/debug.h>
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
