@@ -31,7 +31,7 @@ struct co_ssl_server_context {
 
 
 typedef
-struct co_server_port_opts {
+struct co_ssl_server_port_opts {
   sockaddr_type bind_address;
   SSL_CTX * ssl_ctx;
   int sock_type;

@@ -142,19 +142,21 @@ int main(int argc, char *argv[])
   }
 
 
+
   if ( !(server = co_ssl_server_new(NULL)) ) {
     CF_FATAL("co_server_new() fails");
     goto end;
   }
 
-  co_ssl_server_add_port(server, &(struct co_server_port_opts ) {
+  co_ssl_server_add_port(server, &(struct co_ssl_server_port_opts ) {
         .bind_address.in = {
           .sin_family = AF_INET,
           .sin_port = htons(6008),
           .sin_addr.s_addr = 0,
         },
         .ssl_ctx = g_ssl_ctx,
-        .on_accepted = on_accepted_connection
+        .on_accepted = on_accepted_connection,
+        .accepted_stack_size = PROCESSOR_THREAD_STACK_SIZE
       });
 
 
@@ -163,10 +165,6 @@ int main(int argc, char *argv[])
     goto end;
   }
 
-//  if ( !co_schedule(server_thread, NULL, SERVER_THREAD_STACK_SIZE )) {
-//    CF_FATAL("co_schedule(server_thread) fails: %s", strerror(errno));
-//    goto end;
-//  }
 
   while ( 42 ) {
     sleep(1);
