@@ -1,20 +1,24 @@
 # Make variables (CC, etc...)
 
+NDK_PLATFORM=android-16
+
 ifeq ("$(strip $(shell command -v ndk-which))","")
 $(error No 'ndk-which' found in PATH. Is Android NDK installed correctly?)
 endif
 
-AS		= $(shell ndk-which as)
-LD		= $(shell ndk-which ld)
-CC		= $(shell ndk-which gcc)
-CPP		= $(shell ndk-which cpp)
-CXX   = $(shell ndk-which g++)
-AR		= $(shell ndk-which ar)
-NM		= $(shell ndk-which nm)
-STRIP		= $(shell ndk-which strip)
-OBJCOPY		= $(shell ndk-which objcopy)
-OBJDUMP		= $(shell ndk-which objdump)
 
-NDK_ROOT=$(shell dirname $(command -v ndk-which))
-NDK_PLATFORM=android-16
-NDK_SYSROOT=$(NDK_ROOT)/platforms/$(NDK_PLATFORM)
+NDK_ROOT=$(shell dirname $(shell command -v ndk-which))
+NDK_SYSROOT=$(NDK_ROOT)/platforms/$(NDK_PLATFORM)/arch-arm
+
+AS      = $(shell ndk-which as)
+LD      = $(shell ndk-which ld)
+CC      = $(shell ndk-which gcc) -std=gnu99 --sysroot=$(NDK_SYSROOT)
+CPP     = $(shell ndk-which cpp) --sysroot=$(NDK_SYSROOT)
+CXX     = $(shell ndk-which g++)
+AR      = $(shell ndk-which ar)
+NM      = $(shell ndk-which nm)
+STRIP   = $(shell ndk-which strip)
+OBJCOPY = $(shell ndk-which objcopy)
+OBJDUMP = $(shell ndk-which objdump)
+
+PREFIX  = /usr

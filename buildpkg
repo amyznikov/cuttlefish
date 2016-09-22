@@ -1,63 +1,94 @@
 #! /bin/bash
 
-dist=unknown
+ARCH=""
+CONFIG=""
+NDK_PLATFORM=""
 
-if [[ "$(command -v pacman)" != "" ]]; then 
-	dist="archlinux";
-elif [[ "$(command -v apt-get)" != "" ]]; then
-	dist="debian";
-else 
-	echo "Not supported linux distribution" 1>&2;  
-	exit 1;
-fi
+ARGS=""
 
 
-
-########
-
-# archlinux
-
-if [[ "$dist" == "archlinux" ]]; then
-
-	
-	if ! makepkg $@ ; then
-		echo "makepkg failed" 1>&2;
-		exit 1;
-	fi
-	
-
-
-			
-########
-
-
-# debian 
-
-elif [[ "$dist" == "debian" ]]; then
 
 while [ "$1" ] ; do
     arg="$1"
-    case $arg in 
-	--config) config="$2"; 	shift ;;
+	ARGS="${ARGS} ${arg}"
+    case $arg in
+	ARCH=*) ARCH="${arg##*=}" ;;
+	NDK_PLATFORM=*) NDK_PLATFORM="${arg##*=}" ;; 
 	*=*) export ${arg%%=*}="${arg##*=}" ;;
 	*) ;;
     esac
     shift; 
 done
 
+CONFIG=$(dirname $0)/arch/${ARCH}/makepkg.conf
 
-. $config || exit 1
-. PKGBUILD || exit 1
+echo "ARCH=${ARCH}"
+echo "CONFIG=${CONFIG}"
+echo "NDK_PLATFORM=${NDK_PLATFORM}"
 
 
-case ${CARCH} in
-    x86_64) debarch=amd64 ;;
-    *) debarch=${CARCH} ;;
-esac
 
-debver="${pkgver/_/~}-${pkgrel}"
-debpkg="${pkgname}-${debver}_${debarch}"
-pkgdir="$(pwd)/${debpkg}"
+
+
+###########################################
+
+if [[ "${ARCH}" == "arm-linux-androideabi"* ]] ; then
+	
+	# 	
+	# Android: Build ${pkgname}-${pkgver}-${NDK_PLATFORM}.tar.gz
+	# 
+
+. 	$CONFIG || exit 1
+. 	PKGBUILD || exit 1
+
+	mydir=$(pwd)
+	mypkg="${pkgname}-${pkgver}-${pkgrel}-${NDK_PLATFORM}"
+	pkgdir=${mydir}/${mypkg}
+
+	echo "pkgdir=${pkgdir}"
+	echo "mydir=${mydir}"
+	
+	rm -rf ${pkgdir} && mkdir -p ${pkgdir} && cd ${pkgdir} && package && cd ${mydir} || exit 1
+	tar cJf ${mypkg}.tar.xz ${mypkg} || exit 1
+
+	
+	
+###########################################
+
+elif [[ "$(command -v pacman)" != "" ]]; then
+	
+	#	  
+	# Arch Linux
+	#	  
+	
+	echo "all args: ${ARGS}"
+
+	if ! makepkg --config=${CONFIG} ${ARGS} ; then
+		echo "makepkg failed" 1>&2;
+		exit 1;
+	fi
+
+																																																																
+###########################################
+
+elif [[ "$(command -v apt-get)" != "" ]]; then
+	
+	#	  
+	# Debian 
+	#	  
+
+. 	$CONFIG || exit 1
+. 	PKGBUILD || exit 1
+
+
+	case ${CARCH} in
+	    x86_64) debarch=amd64 ;;
+	    *) debarch=${CARCH} ;;
+	esac
+
+	debver="${pkgver/_/~}-${pkgrel}"
+	debpkg="${pkgname}-${debver}_${debarch}"
+	pkgdir="$(pwd)/${debpkg}"
 
 control="\
 Package: ${pkgname}
@@ -69,41 +100,37 @@ Maintainer: A. Myznikov <andrey.myznikov@gmail.com>
 Description: ${pkgdesc}
 "
 
-rm -rf ${pkgdir} && mkdir -p ${pkgdir}/DEBIAN && cd ${pkgdir} && package && cd ${pkgdir} || exit 1
+	rm -rf ${pkgdir} && mkdir -p ${pkgdir}/DEBIAN && cd ${pkgdir} && package && cd ${pkgdir} || exit 1
 
-# control
-echo "${control}" > DEBIAN/control
+	# control
+	echo "${control}" > DEBIAN/control
 
+	
+	# dirs, links and md5sums
+	for f in */ ; do 
+	    if [[ "$f" != "DEBIAN/" ]] ; then 
+		find $f -type d -exec echo {} \; >> DEBIAN/dirs
+		find $f -type l -exec echo {} \; >> DEBIAN/links
+		md5deep -l -r $f >> DEBIAN/md5sums
+	    fi
+	done
 
-# dirs, links and md5sums
-for f in */ ; do 
-    if [[ "$f" != "DEBIAN/" ]] ; then 
-	find $f -type d -exec echo {} \; >> DEBIAN/dirs
-	find $f -type l -exec echo {} \; >> DEBIAN/links
-	md5deep -l -r $f >> DEBIAN/md5sums
-    fi
-done
+	# conffiles
+	for d in etc usr/local/etc; do
+	    if [[ -d $d ]] ; then 
+		find $d/ -type f -exec echo {} \; >> DEBIAN/conffiles
+	    fi
+	done
+	
 
-# conffiles
-for d in etc usr/local/etc; do
-    if [[ -d $d ]] ; then 
-	find $d/ -type f -exec echo {} \; >> DEBIAN/conffiles
-    fi
-done
+	echo "Building debian package ${debpkg} " 1>&2
+	cd ${pkgdir}/.. && dpkg-deb --build ${debpkg} || exit 1
 
-
-echo "Building debian package ${debpkg} " 1>&2
-cd ${pkgdir}/.. && dpkg-deb --build ${debpkg} || exit 1
-
-
-		
-########
+	
+###########################################
 
 else 
-	
 	echo "Not supported linux distribution" 1>&2;  
 	exit 1;
-	
 fi
 
-########

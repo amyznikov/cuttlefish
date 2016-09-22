@@ -1,12 +1,12 @@
 # openssl
-with-cuttlessl = s
+with-cuttlessl = y
 
 # grpc
 with-protobuf = y
 with-grpc = y
 
 # cuttlefish
-with-libcuttle = y
+with-cuttle = y
 with-cuttle-grpc = y
 
 

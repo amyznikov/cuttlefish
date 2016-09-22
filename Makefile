@@ -17,7 +17,7 @@ ALL_MODULES = \
 	protobuf \
 	grpc \
 	cuttle-grpc \
-	libcuttle \
+	cuttle \
 	ffmpeg \
 	x264
 
@@ -59,7 +59,7 @@ uniq = \
 BUILD_MODULES = $(call build-filter, $(ALL_MODULES))
 OBJDIR = $(CURDIR)/arch/$(ARCH)/build
 INSTALLDIR=$(CURDIR)/arch/$(ARCH)/special-is
-PREFIX=/usr/local
+PREFIX ?= /usr/local
 CPPFLAGS += -I$(INSTALLDIR)/$(PREFIX)/include
 LDFLAGS += -L$(INSTALLDIR)/$(PREFIX)/lib -L$(INSTALLDIR)/$(PREFIX)/lib64
 LDXXFLAGS += -L$(INSTALLDIR)/$(PREFIX)/lib -L$(INSTALLDIR)/$(PREFIX)/lib64
@@ -99,12 +99,15 @@ PACKAGE_ALL = $(addprefix package-,$(BUILD_MODULES))
 package: $(PACKAGE_ALL)
 $(PACKAGE_ALL):
 	cd distrib/$(@:package-%=%) && \
-	$(CURDIR)/buildpkg --config $(CURDIR)/arch/$(ARCH)/makepkg.conf \
+	$(CURDIR)/buildpkg \
+		ARCH=$(ARCH) \
+		NDK_ROOT=$(NDK_ROOT) \
+		NDK_PLATFORM=$(NDK_PLATFORM) \
 		PREFIX=$(PREFIX) \
 		SOURCE_DIR=$(CURDIR)/modules/$(@:package-%=%) \
 		GRPC_CONFIG=$(GRPC_CONFIG) \
 		${pkgargs}
-
+	
 
 $(OBJDIR)/% :
 	mkdir -p $@
@@ -120,6 +123,7 @@ cuttlessl: configure-cuttlessl build-cuttlessl install-cuttlessl
 
 install-cuttlessl: $(INSTALLDIR)
 	$(MAKE) -C $(CURDIR)/modules/cuttlessl install_sw
+	mkdir -p $(INSTALLDIR)/$(PREFIX)/include/openssl/engines/ccgost && cp $(CURDIR)/modules/cuttlessl/engines/ccgost/*.h $(INSTALLDIR)/$(PREFIX)/include/openssl/engines/ccgost 
 
 uninstall-cuttlessl:
 	rm -f $(INSTALLDIR)/$(PREFIX)/bin/{c_rehash,openssl}
@@ -127,16 +131,19 @@ uninstall-cuttlessl:
 	rm -f $(INSTALLDIR)/$(PREFIX)/lib/libcrypto* $(INSTALLDIR)/$(PREFIX)/lib/libssl* $(INSTALLDIR)/$(PREFIX)/lib/pkgconfig/{libcrypto.pc,libssl.pc,openssl.pc}
 	rm -rf $(INSTALLDIR)/$(PREFIX)/lib/engines 
 
-build-cuttlessl:
-	$(MAKE) -C $(CURDIR)/modules/cuttlessl depend all
+
+build-cuttlessl: # fixme? makedepend: command not found
+	$(MAKE) -C $(CURDIR)/modules/cuttlessl all
 
 configure-cuttlessl:
 	if [[ "$(ARCH)" == "native" ]] ; then \
-	   cd $(CURDIR)/modules/cuttlessl && ./config --prefix="$(PREFIX)" --install_prefix="$(INSTALLDIR)" shared || exit 1 ; \
+		cd $(CURDIR)/modules/cuttlessl && ./config --prefix="$(PREFIX)" --install_prefix="$(INSTALLDIR)" shared || exit 1 ; \
+	elif [[ "$(ARCH)" == "arm-linux-androideabi"* ]] ; then \
+		cd $(CURDIR)/modules/cuttlessl && \
+			./Configure --prefix="$(PREFIX)"  --install_prefix=$(INSTALLDIR) android-armv7 || exit 1 ; \
 	else \
-	   T="linux-${FIXME%%-*}"; \
-	   cd $(CURDIR)/modules/cuttlessl && \
-             ./Configure --prefix="$(PREFIX)" --cross-compile-prefix=$(cross_prefix) --install_prefix=$(INSTALLDIR) "$(T)" || exit 1 ; \
+		cd $(CURDIR)/modules/cuttlessl && \
+			./Configure --prefix="$(PREFIX)" --cross-compile-prefix=$(cross_prefix) --install_prefix=$(INSTALLDIR) FIXME || exit 1 ; \
 	fi
 
 
@@ -224,22 +231,42 @@ uninstall-grpc:
 
 ############################################################
 
-libcuttle: build-libcuttle install-libcuttle
+cuttle: build-cuttle install-cuttle
 
-build-libcuttle:
+build-cuttle:
 	CPPFLAGS="$(CPPFLAGS)" \
-		$(MAKE) -C $(CURDIR)/modules/libcuttle prefix=$(PREFIX) all
+		$(MAKE) -C $(CURDIR)/modules/cuttle \
+			ARCH=$(ARCH) \
+			prefix=$(PREFIX) \
+			platform=$(NDK_PLATFORM) \
+			ndk_root=$(NDK_ROOT) \
+			CC="$(CC)" \
+			all
 
-configure-libcuttle:
+configure-cuttle:
 	@echo "Skip $@: nothing to do"
 
-install-libcuttle: $(INSTALLDIR)
+install-cuttle: $(INSTALLDIR)
 	CPPFLAGS="$(CPPFLAGS)" \
-		$(MAKE) -C $(CURDIR)/modules/libcuttle prefix=$(PREFIX) DESTDIR=$(INSTALLDIR) install
+		$(MAKE) -C $(CURDIR)/modules/cuttle \
+			ARCH=$(ARCH) \
+			prefix=$(PREFIX) \
+			NDK_ROOT=$(NDK_ROOT) \
+			NDK_PLATFORM=$(NDK_PLATFORM) \
+			CC="$(CC)" \
+			DESTDIR=$(INSTALLDIR) \
+			install
 
-uninstall-libcuttle:
+uninstall-cuttle:
 	CPPFLAGS="$(CPPFLAGS)" \
-		$(MAKE) -C $(CURDIR)/modules/libcuttle prefix=$(PREFIX) DESTDIR=$(INSTALLDIR) uninstall
+		$(MAKE) -C $(CURDIR)/modules/libcuttle \
+			ARCH=$(ARCH) \
+			prefix=$(PREFIX) \
+			platform=$(NDK_PLATFORM) \
+			ndk_root=$(NDK_ROOT) \
+			CC="$(CC)" \
+			DESTDIR=$(INSTALLDIR) \
+			uninstall
 
 
 ############################################################

@@ -13,3 +13,6 @@
 [submodule "modules/x264"]
 	path = modules/x264
 	url = https://github.com/mirror/x264.git
+[submodule "modules/cuttle"]
+	path = modules/cuttle
+	url = git@github.com:amyznikov/cuttle.git
