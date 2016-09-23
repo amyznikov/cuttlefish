@@ -3,11 +3,12 @@ with-cuttlessl = y
 
 # grpc
 with-protobuf = y
-with-grpc = y
+with-grpc = n
 
 # cuttlefish
+with-libpcl = y
 with-cuttle = y
-with-cuttle-grpc = y
+with-cuttle-grpc = n
 
 
 # ffmpeg

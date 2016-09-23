@@ -17,6 +17,7 @@ ALL_MODULES = \
 	protobuf \
 	grpc \
 	cuttle-grpc \
+	libpcl \
 	cuttle \
 	ffmpeg \
 	x264
@@ -227,6 +228,38 @@ uninstall-grpc:
 	rm -f $(INSTALLDIR)/$(PREFIX)/lib/libgrpc* $(INSTALLDIR)/$(PREFIX)/lib/libgpr*
 	rm -f $(INSTALLDIR)/$(PREFIX)/lib/pkgconfig/grpc*.pc
 	rm -f $(INSTALLDIR)/$(PREFIX)/bin/grpc_*_plugin
+
+
+
+
+
+
+############################################################
+
+libpcl : configure-libpcl build-libpcl install-libpcl
+
+
+configure-libpcl: $(CURDIR)/modules/libpcl/configure
+	cd $(CURDIR)/modules/libpcl && \
+		./configure \
+			--host="$(HOST)" \
+			--prefix=$(PREFIX) \
+			--enable-static=yes \
+			--enable-shared=no \
+			--enable-dependency-tracking=yes \
+			--enable-fast-install=no \
+			--with-pic=yes
+
+
+$(CURDIR)/modules/libpcl/configure: 
+	cd $(CURDIR)/modules/libpcl && ./bootstrap.sh
+
+
+build-libpcl: 
+	$(MAKE) -C $(CURDIR)/modules/libpcl all
+
+install-libpcl:
+	$(MAKE) -C $(CURDIR)/modules/libpcl install DESTDIR=$(INSTALLDIR)
 
 
 ############################################################

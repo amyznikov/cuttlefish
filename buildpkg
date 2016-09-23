@@ -43,11 +43,8 @@ if [[ "${ARCH}" == "arm-linux-androideabi"* ]] ; then
 
 	mydir=$(pwd)
 	mypkg="${pkgname}-${pkgver}-${pkgrel}-${NDK_PLATFORM}"
-	pkgdir=${mydir}/${mypkg}
+	pkgdir=${mydir}/${mypkg}/platforms/${NDK_PLATFORM}/arch-arm
 
-	echo "pkgdir=${pkgdir}"
-	echo "mydir=${mydir}"
-	
 	rm -rf ${pkgdir} && mkdir -p ${pkgdir} && cd ${pkgdir} && package && cd ${mydir} || exit 1
 	tar cJf ${mypkg}.tar.xz ${mypkg} || exit 1
 

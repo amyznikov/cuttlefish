@@ -11,6 +11,7 @@ STRIP     = $(CROSS_COMPILE)strip
 OBJCOPY   = $(CROSS_COMPILE)objcopy
 OBJDUMP   = $(CROSS_COMPILE)objdump
 
+HOST      =
 HOST_CC   = gcc -std=gnu99
 HOST_CXX  = g++ -std=c++11
 HOST_LD   = $(HOST_CC)

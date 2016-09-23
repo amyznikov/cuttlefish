@@ -16,3 +16,6 @@
 [submodule "modules/cuttle"]
 	path = modules/cuttle
 	url = git@github.com:amyznikov/cuttle.git
+[submodule "modules/libpcl"]
+	path = modules/libpcl
+	url = git@github.com:amyznikov/libpcl.git

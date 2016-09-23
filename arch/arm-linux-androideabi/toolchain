@@ -22,3 +22,4 @@ OBJCOPY = $(shell ndk-which objcopy)
 OBJDUMP = $(shell ndk-which objdump)
 
 PREFIX  = /usr
+HOST    = arm-linux-androideabi

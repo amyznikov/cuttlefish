@@ -6,3 +6,4 @@ include arch/default-toolchain
 
 # override default assembler
 AS	= yasm
+
