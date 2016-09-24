@@ -240,7 +240,7 @@ libpcl : configure-libpcl build-libpcl install-libpcl
 
 
 configure-libpcl: $(CURDIR)/modules/libpcl/configure
-	cd $(CURDIR)/modules/libpcl && \
+	CC="$(CC)" && cd $(CURDIR)/modules/libpcl && \
 		./configure \
 			--host="$(HOST)" \
 			--prefix=$(PREFIX) \
@@ -248,7 +248,7 @@ configure-libpcl: $(CURDIR)/modules/libpcl/configure
 			--enable-shared=no \
 			--enable-dependency-tracking=yes \
 			--enable-fast-install=no \
-			--with-pic=yes
+			--with-pic=yes 
 
 
 $(CURDIR)/modules/libpcl/configure: 
@@ -261,6 +261,8 @@ build-libpcl:
 install-libpcl:
 	$(MAKE) -C $(CURDIR)/modules/libpcl install DESTDIR=$(INSTALLDIR)
 
+uninstall-libpcl:
+	$(MAKE) -C $(CURDIR)/modules/libpcl uninstall DESTDIR=$(INSTALLDIR)
 
 ############################################################
 
