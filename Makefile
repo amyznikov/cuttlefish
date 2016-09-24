@@ -15,9 +15,6 @@ include arch/$(ARCH)/toolchain
 ALL_MODULES = \
 	cuttlessl \
 	protobuf \
-	grpc \
-	cuttle-grpc \
-	libpcl \
 	cuttle \
 	ffmpeg \
 	x264
@@ -181,101 +178,21 @@ $(CURDIR)/modules/protobuf/config.h: $(CURDIR)/modules/protobuf/configure
 $(CURDIR)/modules/protobuf/configure: $(CURDIR)/modules/protobuf/autogen.sh
 	cd $(CURDIR)/modules/protobuf && ./autogen.sh
 
-
-############################################################
-
-GRPC_CONFIG=opt
-
-GRPC_MAKE_ARGS= \
-	V=1 \
-	CONFIG=$(GRPC_CONFIG) \
-	GRPC_CROSS_COMPILE=$(GRPC_CROSS_COMPILE) \
-	HAS_PKG_CONFIG=false \
-	CC="$(CC)" HOST_CC="$(HOST_CC)" \
-	CXX="$(CXX)" HOST_CXX="$(HOST_CXX)" \
-	LD="$(LD)" HOST_LD="$(HOST_LD)" \
-	LDXX="$(LDXX)" HOST_LDXX="$(HOST_CXX)"
-
-
-grpc: configure-grpc build-grpc install-grpc
-
-configure-grpc: $(CURDIR)/modules/grpc/third_party/nanopb/pb.h
-$(CURDIR)/modules/grpc/third_party/nanopb/pb.h: 
-	cd $(CURDIR)/modules/grpc && git submodule update --init third_party/nanopb
-
-
-build-grpc:
-	CPPFLAGS="$(CPPFLAGS)" \
-	LDFLAGS="$(LDFLAGS)" \
-	LDXXFLAGS="$(LDXXFLAGS)" \
-		$(MAKE) -C $(CURDIR)/modules/grpc $(GRPC_MAKE_ARGS) prefix=$(PREFIX) all
-
-
-
-grpc-run_dep_checks:
-	CPPFLAGS="$(CPPFLAGS)" \
-	LDFLAGS="$(LDFLAGS)" \
-	LDXXFLAGS="$(LDXXFLAGS)" \
-		$(MAKE) -C $(CURDIR)/modules/grpc $(GRPC_MAKE_ARGS) prefix=$(PREFIX) run_dep_checks
-
-install-grpc: $(INSTALLDIR)
-	cp -r $(CURDIR)/modules/grpc/bins/$(GRPC_CONFIG)/* $(INSTALLDIR)/$(PREFIX)/bin/
-	cp -r $(CURDIR)/modules/grpc/libs/$(GRPC_CONFIG)/* $(INSTALLDIR)/$(PREFIX)/lib/
-	cp -r $(CURDIR)/modules/grpc/include/* $(INSTALLDIR)/$(PREFIX)/include/
-
-uninstall-grpc:
-	rm -rf $(INSTALLDIR)/$(PREFIX)/include/grpc $(INSTALLDIR)/$(PREFIX)/include/grpc++
-	rm -f $(INSTALLDIR)/$(PREFIX)/lib/libgrpc* $(INSTALLDIR)/$(PREFIX)/lib/libgpr*
-	rm -f $(INSTALLDIR)/$(PREFIX)/lib/pkgconfig/grpc*.pc
-	rm -f $(INSTALLDIR)/$(PREFIX)/bin/grpc_*_plugin
-
-
-
-
-
-
-############################################################
-
-libpcl : configure-libpcl build-libpcl install-libpcl
-
-
-configure-libpcl: $(CURDIR)/modules/libpcl/configure
-	CC="$(CC)" && cd $(CURDIR)/modules/libpcl && \
-		./configure \
-			--host="$(HOST)" \
-			--prefix=$(PREFIX) \
-			--enable-static=yes \
-			--enable-shared=no \
-			--enable-dependency-tracking=yes \
-			--enable-fast-install=no \
-			--with-pic=yes 
-
-
-$(CURDIR)/modules/libpcl/configure: 
-	cd $(CURDIR)/modules/libpcl && ./bootstrap.sh
-
-
-build-libpcl: 
-	$(MAKE) -C $(CURDIR)/modules/libpcl all
-
-install-libpcl:
-	$(MAKE) -C $(CURDIR)/modules/libpcl install DESTDIR=$(INSTALLDIR)
-
-uninstall-libpcl:
-	$(MAKE) -C $(CURDIR)/modules/libpcl uninstall DESTDIR=$(INSTALLDIR)
-
 ############################################################
 
 cuttle: build-cuttle install-cuttle
 
+BUILD_CUTTLE_ARGS = \
+	ARCH=$(ARCH) \
+	prefix=$(PREFIX) \
+	NDK_PLATFORM=$(NDK_PLATFORM) \
+	NDK_ROOT=$(NDK_ROOT) \
+	CC="$(CC)" \
+
 build-cuttle:
 	CPPFLAGS="$(CPPFLAGS)" \
 		$(MAKE) -C $(CURDIR)/modules/cuttle \
-			ARCH=$(ARCH) \
-			prefix=$(PREFIX) \
-			platform=$(NDK_PLATFORM) \
-			ndk_root=$(NDK_ROOT) \
-			CC="$(CC)" \
+			$(BUILD_CUTTLE_ARGS) \
 			all
 
 configure-cuttle:
@@ -284,48 +201,20 @@ configure-cuttle:
 install-cuttle: $(INSTALLDIR)
 	CPPFLAGS="$(CPPFLAGS)" \
 		$(MAKE) -C $(CURDIR)/modules/cuttle \
-			ARCH=$(ARCH) \
-			prefix=$(PREFIX) \
-			NDK_ROOT=$(NDK_ROOT) \
-			NDK_PLATFORM=$(NDK_PLATFORM) \
-			CC="$(CC)" \
+			$(BUILD_CUTTLE_ARGS) \
 			DESTDIR=$(INSTALLDIR) \
 			install
 
 uninstall-cuttle:
 	CPPFLAGS="$(CPPFLAGS)" \
 		$(MAKE) -C $(CURDIR)/modules/libcuttle \
-			ARCH=$(ARCH) \
-			prefix=$(PREFIX) \
-			platform=$(NDK_PLATFORM) \
-			ndk_root=$(NDK_ROOT) \
-			CC="$(CC)" \
+			$(BUILD_CUTTLE_ARGS) \
 			DESTDIR=$(INSTALLDIR) \
 			uninstall
 
 
 ############################################################
 
-# $(call build-filter, grpc)
-cuttle-grpc: build-cuttle-grpc install-cuttle-grpc
-
-build-cuttle-grpc:
-	CPPFLAGS="$(CPPFLAGS)" \
-		$(MAKE) -C $(CURDIR)/modules/cuttle-grpc prefix=$(PREFIX) all
-
-configure-cuttle-grpc:
-	@echo "Skip $@: nothing to do"
-
-install-cuttle-grpc: $(INSTALLDIR)
-	CPPFLAGS="$(CPPFLAGS)" \
-		$(MAKE) -C $(CURDIR)/modules/cuttle-grpc prefix=$(PREFIX) DESTDIR=$(INSTALLDIR) install
-
-uninstall-cuttle-grpc:
-	CPPFLAGS="$(CPPFLAGS)" \
-		$(MAKE) -C $(CURDIR)/modules/cuttle-grpc prefix=$(PREFIX) DESTDIR=$(INSTALLDIR) uninstall
-
-
-############################################################
 
 ffmpeg: configure-ffmpeg build-ffmpeg install-ffmpeg
 

@@ -1,15 +1,11 @@
 # openssl
 with-cuttlessl = y
 
-# grpc
+# protobuf
 with-protobuf = y
-with-grpc = n
 
 # cuttlefish
-with-libpcl = y
 with-cuttle = y
-with-cuttle-grpc = n
-
 
 # ffmpeg
 with-ffmpeg = s
